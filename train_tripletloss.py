@@ -36,6 +36,7 @@ def sample_people(dataset, people_per_batch, images_per_person):
         num_per_class.append(nrof_images_class)
         i += 1
 
+    # 校验每个类别的采样图片数量是否等于num_per_class对应每个元素的大小
     count = 0
     for i, num in enumerate(num_per_class):
         standard_class_name = image_paths[count].split("/")[5]
@@ -92,13 +93,21 @@ def main(args):
             capacity=4 * nrof_preprocess_threads * args.batch_size)
 
         train_ds, valid_ds, test_ds = dp.get_lfw_dataset()
-        train(args, train_ds)
 
-def train(args, dataset):
+        with tf.Session() as session:
+            train(args, session, train_ds, enqueue_op, image_paths_placeholder, labels_placeholder)
+
+def train(args, session, dataset, enqueue_op,image_paths_placeholder, labels_placeholder):
     nrof_examples = args.people_per_batch * args.images_per_person
     image_paths, num_per_class = sample_people(dataset=dataset,
                   people_per_batch=args.people_per_batch,
                   images_per_person=args.images_per_person)
+    # 仅仅对image_paths进行标记
+    labels_array = np.reshape(np.arange(nrof_examples), (-1, 3))
+    image_paths_array = np.reshape(image_paths, (-1, 3))
+
+    session.run(enqueue_op, feed_dict={image_paths_placeholder: image_paths_array, labels_placeholder: labels_array})
+
 
 
 def parse_arguments(argv):
