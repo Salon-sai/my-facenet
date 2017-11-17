@@ -178,8 +178,13 @@ def train(args, session, dataset, enqueue_op,image_paths_placeholder, labels_pla
         print("----------batch embeddings-------------")
         print(emb)
 
+    select_triplets(embeddings=emb_array,
+                    nrof_images_per_class=num_per_class,
+                    image_paths=image_paths,
+                    people_per_batch=args.people_per_batch,
+                    alpha=args.alpha)
 
-def select_triplets(embeddings, nrof_images_per_class, image_paths, people_per_batch):
+def select_triplets(embeddings, nrof_images_per_class, image_paths, people_per_batch, alpha):
     """
     
     :param embeddings:
@@ -189,6 +194,20 @@ def select_triplets(embeddings, nrof_images_per_class, image_paths, people_per_b
     :return:
     """
     emd_start_index = 0
+    for image_per_class in nrof_images_per_class:
+        emd_end_index = emd_start_index + image_per_class
+        image_per_embeddings = embeddings[emd_start_index: emd_end_index]
+        for j in range(image_per_class):
+            anchor_i = emd_start_index + j
+            anchor_embedding = embeddings[anchor_i]
+            neg_dist = np.sum(np.square(np.subtract(embeddings, anchor_embedding), 1))
+            neg_dist[emd_start_index: emd_end_index] = np.NAN
+            neg_i = np.argmin(neg_dist)
+            pos_dist = np.sum(np.square(np.subtract(image_per_embeddings, anchor_embedding), 1))
+            pos_i = emd_start_index + np.argmax(pos_dist)
+
+
+
 
 
 def parse_arguments(argv):
