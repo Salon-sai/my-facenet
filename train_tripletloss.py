@@ -1,6 +1,8 @@
 # -*- coding: UTF-8 -*-
 import argparse
 import sys
+import itertools
+import time
 
 import data_process as dp
 import numpy as np
@@ -19,8 +21,8 @@ def sample_people(dataset, people_per_batch, images_per_person):
     :param images_per_person: 每个人脸类型所需要的最大照片数量
     :return:
     """
-    image_paths = []
-    num_per_class = []
+    image_paths = []    # 本次采样中，所有的样本图片的路径
+    num_per_class = []  # 本次采样中，每个类别的样本数目
     nrof_images = people_per_batch * images_per_person
     nrof_classes = len(dataset)
     idx = np.arange(nrof_classes)
@@ -96,7 +98,8 @@ def main(args):
         image_batch, labels_batch = tf.train.batch_join(
             images_and_labels, batch_size=batch_size_placeholder,
             shapes=[(args.image_size, args.image_size, 3), ()], enqueue_many=True,
-            capacity=4 * nrof_preprocess_threads * args.batch_size)
+            capacity=4 * nrof_preprocess_threads * args.batch_size,
+            allow_smaller_final_batch=True)
 
         # the variable of image_batch name is image_batch:0
         image_batch = tf.identity(image_batch, 'image_batch')
@@ -146,66 +149,124 @@ def main(args):
             coord = tf.train.Coordinator()
             tf.train.start_queue_runners(coord=coord, sess=session)
 
-            train(args, session, train_ds, enqueue_op, image_paths_placeholder, labels_placeholder, labels_batch,
-                  batch_size_placeholder, phase_train_placeholder, learning_rate_placeholder, embeddings)
+            for epoch in range(args.epoch_size):
+                train(args, session, train_ds, epoch, enqueue_op, image_paths_placeholder, labels_placeholder, labels_batch,
+                      batch_size_placeholder, phase_train_placeholder, learning_rate_placeholder,
+                      embeddings, total_loss, train_op, global_step, learning_rate)
 
-def train(args, session, dataset, enqueue_op,image_paths_placeholder, labels_placeholder, labels_batch,
-          batch_size_placeholder, phase_train_placeholder, learning_rate_placeholder ,embeddings):
-    # nrof_examlpes: 每个批次处理的图片总数量
-    nrof_examples = args.people_per_batch * args.images_per_person
-    image_paths, num_per_class = sample_people(dataset=dataset,
-                  people_per_batch=args.people_per_batch,
-                  images_per_person=args.images_per_person)
-    # 仅仅对image_paths进行标记
-    labels_array = np.reshape(np.arange(nrof_examples), (-1, 3))
-    image_paths_array = np.reshape(image_paths, (-1, 3))
+def train(args, session, dataset, epoch, enqueue_op,image_paths_placeholder, labels_placeholder, labels_batch,
+          batch_size_placeholder, phase_train_placeholder, learning_rate_placeholder ,
+          embeddings, loss, train_op, global_step, learning_rate):
 
-    # 进行入队处理，把image_paths和labels_array放入队列中
-    session.run(enqueue_op, feed_dict={image_paths_placeholder: image_paths_array, labels_placeholder: labels_array})
-    emb_array = np.zeros((nrof_examples, args.embedding_size))
+    # 记录本次回合已经训练的step次数
+    batch_number = 0
 
-    nrof_batches = int(np.ceil(nrof_examples / args.batch_size))
-    # 用于求出采样的每张照片的embedding向量
-    for i in range(nrof_batches):
-        # 由于使用队列出队形式产生data batch，但args.batch_size不一定能正除nrof_examples，所以需要
-        # 在batch_size与剩余图片之间做取最小值，作为出队的batch_size
-        batch_size = min(nrof_examples - i * args.batch_size, args.batch_size)
-        # 计算出batch_size个embeddings向量的值
-        emb, lab = session.run([embeddings, labels_batch], feed_dict={batch_size_placeholder: batch_size,
-                                                                      learning_rate_placeholder: args.learning_rate,
-                                                                      phase_train_placeholder: True})
-        emb_array[lab, :] = emb
-        print("----------batch embeddings-------------")
-        print(emb)
+    while batch_number < args.epoch_size:
+        image_paths, num_per_class = sample_people(dataset=dataset,
+                      people_per_batch=args.people_per_batch,
+                      images_per_person=args.images_per_person)
 
-    select_triplets(embeddings=emb_array,
-                    nrof_images_per_class=num_per_class,
-                    image_paths=image_paths,
-                    people_per_batch=args.people_per_batch,
-                    alpha=args.alpha)
+        start_time = time.time()
+        # nrof_examlpes: 每个批次处理的图片总数量
+        nrof_examples = args.people_per_batch * args.images_per_person
+        # 仅仅对image_paths进行标记
+        labels_array = np.reshape(np.arange(nrof_examples), (-1, 3))
+        image_paths_array = np.reshape(image_paths, (-1, 3))
+
+        # 进行入队处理，把image_paths和labels_array放入队列中
+        session.run(enqueue_op, feed_dict={image_paths_placeholder: image_paths_array, labels_placeholder: labels_array})
+        emb_array = np.zeros((nrof_examples, args.embedding_size))
+
+        nrof_batches = int(np.ceil(nrof_examples / args.batch_size))
+        # 用于求出采样的每张照片的embedding向量
+        for i in range(nrof_batches):
+            # 由于使用队列出队形式产生data batch，但args.batch_size不一定能正除nrof_examples，所以需要
+            # 在batch_size与剩余图片之间做取最小值，作为出队的batch_size
+            batch_size = min(nrof_examples - i * args.batch_size, args.batch_size)
+            # 计算出batch_size个embeddings向量的值
+            emb, lab = session.run([embeddings, labels_batch], feed_dict={batch_size_placeholder: batch_size,
+                                                                          learning_rate_placeholder: args.learning_rate,
+                                                                          phase_train_placeholder: True})
+            emb_array[lab, :] = emb
+
+
+        triplets, num_triplets = select_triplets(embeddings=emb_array,
+                        nrof_images_per_class=num_per_class,
+                        image_paths=image_paths,
+                        people_per_batch=args.people_per_batch,
+                        alpha=args.alpha)
+        print("select triplets speed the time: %.3f s" % (time.time() - start_time))
+        nrof_batches = int(np.ceil(3 * num_triplets) / args.batch_size)
+        triplets_paths = list(itertools.chain(*triplets))
+        labels_array = np.reshape(np.arange(len(triplets_paths)), (-1, 3))
+        triplets_path_array = np.reshape(np.expand_dims(np.array(triplets_paths), 1), (-1, 3))
+        session.run(enqueue_op, feed_dict={image_paths_placeholder: triplets_path_array, labels_placeholder: labels_array})
+        nrof_examples = len(triplets_paths)
+        print("3 times num_triplets: %d nrof_examples: %d" % (3 * num_triplets, nrof_examples))
+
+        emb_array = np.zeros((nrof_examples, args.embedding_size))
+        loss_array = np.zeros(num_triplets)
+        train_time = 0
+        for i in range(nrof_batches):
+            start_time = time.time()
+            batch_size = min(args.batch_size, nrof_examples - i * args.batch_size)
+            l, _, gs, lr, emb,lab = session.run([loss, train_op, global_step, learning_rate, embeddings, labels_batch],
+                        feed_dict={
+                            phase_train_placeholder: True,
+                            batch_size_placeholder: batch_size,
+                            learning_rate_placeholder: args.learning_rate,
+                        })
+            emb_array[lab, :] = emb
+            loss_array[i] = l
+            duration = time.time() - start_time
+            print("Epoch [%d][%d/%d] \t Time %.3f\t Loss %2.3f" % (epoch, i, args.batch_size, duration, l))
+            train_time += duration
+            batch_number += 1
+
+
+
 
 def select_triplets(embeddings, nrof_images_per_class, image_paths, people_per_batch, alpha):
     """
-    
-    :param embeddings:
-    :param nrof_images_per_class:
-    :param image_paths:
-    :param people_per_batch:
+    :param embeddings: 该批数据的embedding向量
+    :param nrof_images_per_class: 每一个类别的样本数量
+    :param image_paths: 每个图片样本的路径
+    :param people_per_batch: 本次batch的类别数目（人脸数目）
     :return:
     """
+    # 记录同一类别图片的开始index
     emd_start_index = 0
+    num_trips = 0  # 预期triplet的数量
+    triplets = []
+
     for image_per_class in nrof_images_per_class:
-        emd_end_index = emd_start_index + image_per_class
+        # 记录同一类别图片的结束index
+        emd_end_index = emd_start_index + int(image_per_class)
+        # 同一类别图片的所有embedding向量
         image_per_embeddings = embeddings[emd_start_index: emd_end_index]
         for j in range(image_per_class):
             anchor_i = emd_start_index + j
-            anchor_embedding = embeddings[anchor_i]
-            neg_dist = np.sum(np.square(np.subtract(embeddings, anchor_embedding), 1))
-            neg_dist[emd_start_index: emd_end_index] = np.NAN
-            neg_i = np.argmin(neg_dist)
-            pos_dist = np.sum(np.square(np.subtract(image_per_embeddings, anchor_embedding), 1))
-            pos_i = emd_start_index + np.argmax(pos_dist)
+            neg_dists = np.sum(np.square(embeddings - embeddings[anchor_i]), 1)
+            neg_dists[emd_start_index: emd_end_index] = np.NAN
+            for pair in range(j + 1, image_per_class):
+                # 每一对positive embedding作为一个positive样本
+                pos_i = emd_start_index + pair
+                pos_dist = np.sum(np.square(embeddings[anchor_i] - embeddings[pos_i]))
+                all_neg_i = np.where(neg_dists - pos_dist < alpha)[0]
+                nrof_random_negs = len(all_neg_i)
+                if nrof_random_negs > 0:
+                    rnd_idx = np.argmin(neg_dists[all_neg_i])
+                    # rnd_idx = np.random.randint(nrof_random_negs) # 源代码通过随机选取neg的idx，而不是选择最小的那个neg_dist
+                    neg_i = all_neg_i[rnd_idx]
+                    print("positive dist: %1.4f negative dist %1.4f" % (pos_dist, neg_dists[neg_i]))
+                    triplets.append((image_paths[anchor_i], image_paths[pos_i], image_paths[neg_i]))
+                num_trips += 1
 
+        emd_start_index = emd_end_index
+
+    np.random.shuffle(triplets)
+    print("number of triplets : %d, expect number of triplets: : %d" % (len(triplets), num_trips))
+    return triplets, len(triplets)
 
 
 
