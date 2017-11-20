@@ -219,6 +219,8 @@ def train(args, session, dataset, epoch, enqueue_op,image_paths_placeholder, lab
         triplets_paths = list(itertools.chain(*triplets))
         labels_array = np.reshape(np.arange(len(triplets_paths)), (-1, 3))
         triplets_path_array = np.reshape(np.expand_dims(np.array(triplets_paths), 1), (-1, 3))
+        # 进行入队操作
+        # 按照(anchor, positive, negative)图片三元组作为训练一个训练样本
         session.run(enqueue_op, feed_dict={image_paths_placeholder: triplets_path_array, labels_placeholder: labels_array})
         nrof_examples = len(triplets_paths)
         print("3 times num_triplets: %d nrof_examples: %d" % (3 * num_triplets, nrof_examples))
@@ -229,6 +231,8 @@ def train(args, session, dataset, epoch, enqueue_op,image_paths_placeholder, lab
         for i in range(nrof_batches):
             start_time = time.time()
             batch_size = min(args.batch_size, nrof_examples - i * args.batch_size)
+            print("batch_size %d\t learning_rate %.4f" % (batch_size, args.learning_rate))
+            # 执行训练操作，给神经网络喂养batch_size个样本
             l, _, gs, lr, emb, lab = session.run([loss, train_op, global_step, learning_rate, embeddings, labels_batch],
                         feed_dict={
                             phase_train_placeholder: True,
@@ -240,9 +244,11 @@ def train(args, session, dataset, epoch, enqueue_op,image_paths_placeholder, lab
             emb_array[lab, :] = emb
             loss_array[i] = l
             duration = time.time() - start_time
-            print("Epoch [%d][%d/%d] \t Time %.3f\t Loss %2.3f" % (epoch, i, args.batch_size, duration, l))
+            print("Epoch [%d][%d/%d]\t Global Time %d \t Time %.3f\t Loss %2.3f"
+                  % (epoch, gs,  batch_number + 1, args.batch_size, duration, l))
             train_time += duration
             batch_number += 1
+        print("The %d-th epoch spend %.4f s training" % (epoch, train_time))
         summary = tf.Summary()
         summary.value.add(tag="time/selection", simple_value=selection_time)
         summary_writter.add_summary(summary, gs)
