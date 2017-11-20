@@ -159,9 +159,11 @@ def main(args):
             tf.train.start_queue_runners(coord=coord, sess=session)
 
             epoch = 0
+            # 开始进行回合训练
             while epoch < args.max_nrof_epochs:
                 gs = session.run(global_step, feed_dict=None)
-
+                # 因为每次训练都会执行若干个step，而且step并不确定。
+                # 所以需要使用整除方式判断时候满足一个回合所需的step
                 epoch = gs // args.epoch_size
 
                 train(args, session, train_ds, epoch, enqueue_op, image_paths_placeholder, labels_placeholder, labels_batch,
@@ -260,6 +262,7 @@ def train(args, session, dataset, epoch, enqueue_op,image_paths_placeholder, lab
 
 def select_triplets(embeddings, nrof_images_per_class, image_paths, people_per_batch, alpha):
     """
+    根据embedding之间的相似度来选择偏离最大的negative和positive样本
     :param embeddings: 该批数据的embedding向量
     :param nrof_images_per_class: 每一个类别的样本数量
     :param image_paths: 每个图片样本的路径
