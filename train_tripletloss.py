@@ -3,6 +3,8 @@ import argparse
 import sys
 import itertools
 import time
+import datetime
+import os
 
 import data_process as dp
 import numpy as np
@@ -54,6 +56,11 @@ def sample_people(dataset, people_per_batch, images_per_person):
     return image_paths, num_per_class
 
 def main(args):
+    subdir = datetime.datetime.strftime(datetime.datetime.now(), '%Y%m%d-%H%M%S')
+    log_dir = os.path.join(os.path.expanduser(args.logs_base_dir), subdir)
+    if not os.path.isdir(log_dir):
+        os.makedirs(log_dir)
+
     with tf.Graph().as_default():
         global_step = tf.Variable(0, trainable=False)
 
@@ -144,22 +151,33 @@ def main(args):
             session.run(tf.global_variables_initializer(), feed_dict={phase_train_placeholder: True})
             session.run(tf.local_variables_initializer(), feed_dict={phase_train_placeholder: True})
 
-            # summary_writer = tf.summary.FileWriter()
+            summary_writer = tf.summary.FileWriter(logdir=log_dir, graph=session.graph)
 
             coord = tf.train.Coordinator()
             tf.train.start_queue_runners(coord=coord, sess=session)
 
-            for epoch in range(args.epoch_size):
+            epoch = 0
+            while epoch < args.max_nrof_epochs:
+                gs = session.run(global_step, feed_dict=None)
+
+                epoch = gs // args.epoch_size
+
                 train(args, session, train_ds, epoch, enqueue_op, image_paths_placeholder, labels_placeholder, labels_batch,
                       batch_size_placeholder, phase_train_placeholder, learning_rate_placeholder,
-                      embeddings, total_loss, train_op, global_step, learning_rate)
+                      embeddings, total_loss, train_op, global_step, learning_rate,
+                      summary_writer)
 
 def train(args, session, dataset, epoch, enqueue_op,image_paths_placeholder, labels_placeholder, labels_batch,
           batch_size_placeholder, phase_train_placeholder, learning_rate_placeholder ,
-          embeddings, loss, train_op, global_step, learning_rate):
+          embeddings, loss, train_op, global_step, learning_rate,
+          summary_writter):
+
+    if args.learning_rate < 0:
+        pass
 
     # 记录本次回合已经训练的step次数
     batch_number = 0
+    gs = 0
 
     while batch_number < args.epoch_size:
         image_paths, num_per_class = sample_people(dataset=dataset,
@@ -195,6 +213,7 @@ def train(args, session, dataset, epoch, enqueue_op,image_paths_placeholder, lab
                         image_paths=image_paths,
                         people_per_batch=args.people_per_batch,
                         alpha=args.alpha)
+        selection_time = time.time() - start_time
         print("select triplets speed the time: %.3f s" % (time.time() - start_time))
         nrof_batches = int(np.ceil(3 * num_triplets) / args.batch_size)
         triplets_paths = list(itertools.chain(*triplets))
@@ -210,20 +229,25 @@ def train(args, session, dataset, epoch, enqueue_op,image_paths_placeholder, lab
         for i in range(nrof_batches):
             start_time = time.time()
             batch_size = min(args.batch_size, nrof_examples - i * args.batch_size)
-            l, _, gs, lr, emb,lab = session.run([loss, train_op, global_step, learning_rate, embeddings, labels_batch],
+            l, _, gs, lr, emb, lab = session.run([loss, train_op, global_step, learning_rate, embeddings, labels_batch],
                         feed_dict={
                             phase_train_placeholder: True,
                             batch_size_placeholder: batch_size,
                             learning_rate_placeholder: args.learning_rate,
                         })
+            # 记录并保存learning rate
+            args.learning_rate = lr
             emb_array[lab, :] = emb
             loss_array[i] = l
             duration = time.time() - start_time
             print("Epoch [%d][%d/%d] \t Time %.3f\t Loss %2.3f" % (epoch, i, args.batch_size, duration, l))
             train_time += duration
             batch_number += 1
+        summary = tf.Summary()
+        summary.value.add(tag="time/selection", simple_value=selection_time)
+        summary_writter.add_summary(summary, gs)
 
-
+    return gs
 
 
 def select_triplets(embeddings, nrof_images_per_class, image_paths, people_per_batch, alpha):
@@ -258,12 +282,12 @@ def select_triplets(embeddings, nrof_images_per_class, image_paths, people_per_b
                     rnd_idx = np.argmin(neg_dists[all_neg_i])
                     # rnd_idx = np.random.randint(nrof_random_negs) # 源代码通过随机选取neg的idx，而不是选择最小的那个neg_dist
                     neg_i = all_neg_i[rnd_idx]
-                    print("positive dist: %1.4f negative dist %1.4f" % (pos_dist, neg_dists[neg_i]))
+                    # print("positive dist: %1.4f negative dist %1.4f" % (pos_dist, neg_dists[neg_i]))
                     triplets.append((image_paths[anchor_i], image_paths[pos_i], image_paths[neg_i]))
                 num_trips += 1
 
         emd_start_index = emd_end_index
-
+    # print(np.sum(nrof_images_per_class[np.where(nrof_images_per_class > 1)] - len(np.where(nrof_images_per_class > 1))))
     np.random.shuffle(triplets)
     print("number of triplets : %d, expect number of triplets: : %d" % (len(triplets), num_trips))
     return triplets, len(triplets)
@@ -273,6 +297,8 @@ def select_triplets(embeddings, nrof_images_per_class, image_paths, people_per_b
 
 def parse_arguments(argv):
     parser = argparse.ArgumentParser()
+    parser.add_argument('--max_nrof_epochs', type=int, help="Number of epochs to run", default=500)
+    parser.add_argument("--logs_base_dir", type=str, help='Directory where to write event logs.', default='logs/')
     parser.add_argument("--image_size", type=int, help="Image size (height, width) in a pixels.", default=160)
     parser.add_argument("--random_flip", help="random horizontal flipping of training images.", action="store_true")
     parser.add_argument("--batch_size", type=int, help="Number of images to process in a batch.", default=90)
