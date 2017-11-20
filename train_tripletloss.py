@@ -303,8 +303,20 @@ def select_triplets(embeddings, nrof_images_per_class, image_paths, people_per_b
     print("number of triplets : %d, expect number of triplets: : %d" % (len(triplets), num_trips))
     return triplets, len(triplets)
 
-
-
+def save_variabels_and_metagraph(session, saver, summary_writter, model_dir, model_name, step):
+    start_time = time.time()
+    checkpoint_path = os.path.join(model_dir, 'model-%s.ckpt' % model_name)
+    saver.save(session, checkpoint_path, global_step=step, write_meta_graph=False)
+    save_time_variables = time.time() - start_time
+    print("Variables saved in %.2f seconds" % save_time_variables)
+    metagraph_filename = os.path.join(model_dir, 'model-%s.meta' % model_name)
+    save_time_metagraph = 0
+    if not os.path.exists(metagraph_filename):
+        print('Saving metagraph')
+        start_time = time.time()
+        saver.export_meta_graph(metagraph_filename)
+        save_time_metagraph = time.time() - start_time
+        print('Metagraph saved in %.2d seconds' % save_time_metagraph)
 
 def parse_arguments(argv):
     parser = argparse.ArgumentParser()
