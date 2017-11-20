@@ -215,7 +215,7 @@ def train(args, session, dataset, epoch, enqueue_op,image_paths_placeholder, lab
                         alpha=args.alpha)
         selection_time = time.time() - start_time
         print("select triplets speed the time: %.3f s" % (time.time() - start_time))
-        nrof_batches = int(np.ceil(3 * num_triplets) / args.batch_size)
+        nrof_batches = int(np.ceil(3 * num_triplets / args.batch_size))
         triplets_paths = list(itertools.chain(*triplets))
         labels_array = np.reshape(np.arange(len(triplets_paths)), (-1, 3))
         triplets_path_array = np.reshape(np.expand_dims(np.array(triplets_paths), 1), (-1, 3))
