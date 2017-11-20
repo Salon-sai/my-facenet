@@ -304,7 +304,7 @@ def select_triplets(embeddings, nrof_images_per_class, image_paths, people_per_b
 
 def parse_arguments(argv):
     parser = argparse.ArgumentParser()
-    parser.add_argument("--gpu_memory_fraction", type=int, help="Upper bound on the amount of GPU memory that will be used by the process.", default=1.0)
+    parser.add_argument("--gpu_memory_fraction", type=int, help="Upper bound on the amount of GPU memory that will be used by the process.", default=0.3)
     parser.add_argument('--max_nrof_epochs', type=int, help="Number of epochs to run", default=500)
     parser.add_argument("--logs_base_dir", type=str, help='Directory where to write event logs.', default='logs/')
     parser.add_argument("--image_size", type=int, help="Image size (height, width) in a pixels.", default=160)
