@@ -206,10 +206,13 @@ def train(args, session, dataset, epoch, enqueue_op,image_paths_placeholder, lab
             # 在batch_size与剩余图片之间做取最小值，作为出队的batch_size
             batch_size = min(nrof_examples - i * args.batch_size, args.batch_size)
             # 计算出batch_size个embeddings向量的值
-            emb, lab = session.run([embeddings, labels_batch], feed_dict={batch_size_placeholder: batch_size,
-                                                                          learning_rate_placeholder: args.learning_rate,
-                                                                          phase_train_placeholder: True})
-            emb_array[lab, :] = emb
+            try:
+                emb, lab = session.run([embeddings, labels_batch], feed_dict={batch_size_placeholder: batch_size,
+                                                                              learning_rate_placeholder: args.learning_rate,
+                                                                              phase_train_placeholder: True})
+                emb_array[lab, :] = emb
+            except tf.errors.OutOfRangeError:
+                print("enqueue number of image", len(image_paths))
 
 
         triplets, num_triplets = select_triplets(embeddings=emb_array,
@@ -249,7 +252,7 @@ def train(args, session, dataset, epoch, enqueue_op,image_paths_placeholder, lab
             loss_array[i] = l
             duration = time.time() - start_time
             print("Epoch [%d][%d/%d]\t Global Time %d \t Time %.3f\t Loss %2.3f"
-                  % (epoch, gs,  batch_number + 1, args.batch_size, duration, l))
+                  % (epoch, batch_number + 1, args.batch_size, gs, duration, l))
             train_time += duration
             batch_number += 1
         print("The %d-th epoch spend %.4f s training" % (epoch, train_time))
