@@ -71,18 +71,35 @@ def get_lfw_dataset():
     dataset = get_dataset("~/data/lfw")
     return split_dataset(dataset=dataset)
 
-def generate_same_validate(dataset):
-    same_dataset = []
-    for per_person_images in dataset:
+def generate_evaluate_dataset(dataset):
+    """
+    生成用于校验的数据集合
+    :param dataset: 原始的数据集合，每个元素都是同一个人的人脸图像路径数组
+    :return:
+    """
+    evaluate_dataset = []
+    issame_array = []
+    num_people = len(dataset)
+    for index, per_person_images in enumerate(dataset):
         num_images = len(per_person_images)
         if num_images > 1:
             for i in range(num_images):
                 for j in range(i + 1, num_images):
-                    same_dataset.append((per_person_images[i], per_person_images[j]))
+                    evaluate_dataset.append((per_person_images[i], per_person_images[j]))
+                    issame_array.append(True)
+        elif num_images == 1:
+            other_index = np.random.choice(np.where(num_people != index)[0])
+            other_person_images = dataset[other_index]
+            if len(other_person_images) == 1:
+                other_image = other_person_images[0]
+            else:
+                other_image = np.random.choice(other_person_images)
+            evaluate_dataset.append((per_person_images[0], other_image))
+            issame_array.append(False)
     # 为了满足之后reshape(-1, 3)，所以需要将数据集进行裁剪
-    actual_len = ((len(same_dataset) * 2 // 3) * 3) / 2
-    same_dataset = same_dataset[:actual_len]
-    return same_dataset
+    actual_len = ((len(evaluate_dataset) * 2 // 3) * 3) / 2
+    evaluate_dataset = evaluate_dataset[:actual_len]
+    return evaluate_dataset, issame_array
 
 def parse_arguments(argv):
     parser = argparse.ArgumentParser()

@@ -324,7 +324,7 @@ def save_variabels_and_metagraph(session, saver, summary_writter, model_dir, mod
 def evaluate(session, dataset, embeddings, labels_batch, enqueue_op,
              image_paths_placeholder, labels_placeholder, batch_size_placeholder, phase_train_placeholder, learning_rate_placeholder,
              args):
-    validate_dataset = dp.generate_same_validate(dataset)
+    validate_dataset, issame_array = dp.generate_evaluate_dataset(dataset)
     nrof_images = len(validate_dataset) * 2
     labels_array = np.reshape(np.arange(nrof_images), (-1, 3))
     image_paths_array = np.reshape(np.expand_dims(np.array(validate_dataset), 1), (-1, 3))
