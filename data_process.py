@@ -71,6 +71,19 @@ def get_lfw_dataset():
     dataset = get_dataset("~/data/lfw")
     return split_dataset(dataset=dataset)
 
+def generate_same_validate(dataset):
+    same_dataset = []
+    for per_person_images in dataset:
+        num_images = len(per_person_images)
+        if num_images > 1:
+            for i in range(num_images):
+                for j in range(i + 1, num_images):
+                    same_dataset.append((per_person_images[i], per_person_images[j]))
+    # 为了满足之后reshape(-1, 3)，所以需要将数据集进行裁剪
+    actual_len = ((len(same_dataset) * 2 // 3) * 3) / 2
+    same_dataset = same_dataset[:actual_len]
+    return same_dataset
+
 def parse_arguments(argv):
     parser = argparse.ArgumentParser()
     parser.add_argument('input_dir', type=str, help="Directory with training data set")

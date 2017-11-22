@@ -214,51 +214,51 @@ def train(args, session, dataset, epoch, enqueue_op,image_paths_placeholder, lab
             except tf.errors.OutOfRangeError:
                 print("enqueue number of image", len(image_paths))
 
-
-        triplets, num_triplets = select_triplets(embeddings=emb_array,
-                        nrof_images_per_class=num_per_class,
-                        image_paths=image_paths,
-                        people_per_batch=args.people_per_batch,
-                        alpha=args.alpha)
-        selection_time = time.time() - start_time
-        print("select triplets speed the time: %.3f s" % (time.time() - start_time))
-        nrof_batches = int(np.ceil(3 * num_triplets / args.batch_size))
-        triplets_paths = list(itertools.chain(*triplets))
-        labels_array = np.reshape(np.arange(len(triplets_paths)), (-1, 3))
-        triplets_path_array = np.reshape(np.expand_dims(np.array(triplets_paths), 1), (-1, 3))
-        # 进行入队操作
-        # 按照(anchor, positive, negative)图片三元组作为训练一个训练样本
-        session.run(enqueue_op, feed_dict={image_paths_placeholder: triplets_path_array, labels_placeholder: labels_array})
-        nrof_examples = len(triplets_paths)
-        print("3 times num_triplets: %d nrof_examples: %d" % (3 * num_triplets, nrof_examples))
-
-        emb_array = np.zeros((nrof_examples, args.embedding_size))
-        loss_array = np.zeros(num_triplets)
-        train_time = 0
-        for i in range(nrof_batches):
-            start_time = time.time()
-            batch_size = min(args.batch_size, nrof_examples - i * args.batch_size)
-            print("batch_size %d\t learning_rate %.4f" % (batch_size, args.learning_rate))
-            # 执行训练操作，给神经网络喂养batch_size个样本
-            l, _, gs, lr, emb, lab = session.run([loss, train_op, global_step, learning_rate, embeddings, labels_batch],
-                        feed_dict={
-                            phase_train_placeholder: True,
-                            batch_size_placeholder: batch_size,
-                            learning_rate_placeholder: args.learning_rate,
-                        })
-            # 记录并保存learning rate
-            args.learning_rate = lr
-            emb_array[lab, :] = emb
-            loss_array[i] = l
-            duration = time.time() - start_time
-            print("Epoch [%d][%d/%d]\t Global Time %d \t Time %.3f\t Loss %2.3f"
-                  % (epoch, batch_number + 1, args.batch_size, gs, duration, l))
-            train_time += duration
-            batch_number += 1
-        print("The %d-th epoch spend %.4f s training" % (epoch, train_time))
-        summary = tf.Summary()
-        summary.value.add(tag="time/selection", simple_value=selection_time)
-        summary_writter.add_summary(summary, gs)
+        #
+        # triplets, num_triplets = select_triplets(embeddings=emb_array,
+        #                 nrof_images_per_class=num_per_class,
+        #                 image_paths=image_paths,
+        #                 people_per_batch=args.people_per_batch,
+        #                 alpha=args.alpha)
+        # selection_time = time.time() - start_time
+        # print("select triplets speed the time: %.3f s" % (time.time() - start_time))
+        # nrof_batches = int(np.ceil(3 * num_triplets / args.batch_size))
+        # triplets_paths = list(itertools.chain(*triplets))
+        # labels_array = np.reshape(np.arange(len(triplets_paths)), (-1, 3))
+        # triplets_path_array = np.reshape(np.expand_dims(np.array(triplets_paths), 1), (-1, 3))
+        # # 进行入队操作
+        # # 按照(anchor, positive, negative)图片三元组作为训练一个训练样本
+        # session.run(enqueue_op, feed_dict={image_paths_placeholder: triplets_path_array, labels_placeholder: labels_array})
+        # nrof_examples = len(triplets_paths)
+        # print("3 times num_triplets: %d nrof_examples: %d" % (3 * num_triplets, nrof_examples))
+        #
+        # emb_array = np.zeros((nrof_examples, args.embedding_size))
+        # loss_array = np.zeros(num_triplets)
+        # train_time = 0
+        # for i in range(nrof_batches):
+        #     start_time = time.time()
+        #     batch_size = min(args.batch_size, nrof_examples - i * args.batch_size)
+        #     print("batch_size %d\t learning_rate %.4f" % (batch_size, args.learning_rate))
+        #     # 执行训练操作，给神经网络喂养batch_size个样本
+        #     l, _, gs, lr, emb, lab = session.run([loss, train_op, global_step, learning_rate, embeddings, labels_batch],
+        #                 feed_dict={
+        #                     phase_train_placeholder: True,
+        #                     batch_size_placeholder: batch_size,
+        #                     learning_rate_placeholder: args.learning_rate,
+        #                 })
+        #     # 记录并保存learning rate
+        #     args.learning_rate = lr
+        #     emb_array[lab, :] = emb
+        #     loss_array[i] = l
+        #     duration = time.time() - start_time
+        #     print("Epoch [%d][%d/%d]\t Global Time %d \t Time %.3f\t Loss %2.3f"
+        #           % (epoch, batch_number + 1, args.batch_size, gs, duration, l))
+        #     train_time += duration
+        #     batch_number += 1
+        # print("The %d-th epoch spend %.4f s training" % (epoch, train_time))
+        # summary = tf.Summary()
+        # summary.value.add(tag="time/selection", simple_value=selection_time)
+        # summary_writter.add_summary(summary, gs)
 
     return gs
 
@@ -320,6 +320,28 @@ def save_variabels_and_metagraph(session, saver, summary_writter, model_dir, mod
         saver.export_meta_graph(metagraph_filename)
         save_time_metagraph = time.time() - start_time
         print('Metagraph saved in %.2d seconds' % save_time_metagraph)
+
+def evaluate(session, dataset, embeddings, labels_batch, enqueue_op,
+             image_paths_placeholder, labels_placeholder, batch_size_placeholder, phase_train_placeholder, learning_rate_placeholder,
+             args):
+    validate_dataset = dp.generate_same_validate(dataset)
+    nrof_images = len(validate_dataset) * 2
+    labels_array = np.reshape(np.arange(nrof_images), (-1, 3))
+    image_paths_array = np.reshape(np.expand_dims(np.array(validate_dataset), 1), (-1, 3))
+    assert labels_array.shape == image_paths_array.shape
+    session.run(enqueue_op, feed_dict={image_paths_placeholder: image_paths_array, labels_placeholder: labels_array})
+    emb_array = np.zeros((nrof_images, args.embedding_size))
+    nrof_batch = int(np.ceil(nrof_images / args.batch_size))
+
+    for i in range(nrof_batch):
+        batch_size = min(args.batch_size, nrof_images - i * args.batch_size)
+        emb, lab = session.run([embeddings, labels_batch],
+                               feed_dict={
+                                   batch_size_placeholder: batch_size,
+                                   phase_train_placeholder: False,
+                                   learning_rate_placeholder: 0.0
+                               })
+        emb_array[lab, :] = emb
 
 def parse_arguments(argv):
     parser = argparse.ArgumentParser()
