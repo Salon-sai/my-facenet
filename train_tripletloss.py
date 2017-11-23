@@ -255,7 +255,7 @@ def train(args, session, dataset, epoch, enqueue_op,image_paths_placeholder, lab
             start_time = time.time()
             batch_size = min(args.batch_size, nrof_examples - i * args.batch_size)
             # 执行训练操作，给神经网络喂养batch_size个样本
-            l, _, gs, lr, emb, lab = session.run([loss, train_op, global_step, learning_rate, embeddings, labels_batch],
+            l, _, train_summary,gs, lr, emb, lab = session.run([loss, train_op, summary_op, global_step, learning_rate, embeddings, labels_batch],
                         feed_dict={
                             phase_train_placeholder: True,
                             batch_size_placeholder: batch_size,
@@ -266,7 +266,7 @@ def train(args, session, dataset, epoch, enqueue_op,image_paths_placeholder, lab
             emb_array[lab, :] = emb
             loss_array[i] = l
             # 记录训练时，各个变量的变化
-            # summary_writter.add_summary(train_summary, gs)
+            summary_writter.add_summary(train_summary, gs)
             duration = time.time() - start_time
             print("batch_size %d\t learning_rate %.4f" % (batch_size, lr))
             print("Epoch [%d][%d/%d]\t Global Step %d \t Time %.3f\t Loss %2.3f"
@@ -380,7 +380,7 @@ def evaluate(session, dataset, embeddings, labels_batch, enqueue_op,
 
     summary_wirter.add_summary(summary, global_step)
     with open(os.path.join(log_dir, 'lfw_result.txt'), 'at') as f:
-        f.write('%d\t%.5f\t%.5f\n' % (global_step, np.mean(accuracy), val))
+        f.write('%d\t%.5f\t%.5f\n' % (global_step, float(np.mean(accuracy)), val))
 
 def parse_arguments(argv):
     parser = argparse.ArgumentParser()
