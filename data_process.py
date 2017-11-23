@@ -107,5 +107,5 @@ def parse_arguments(argv):
     parser.add_argument('--input_dir', type=str, help="Directory with training data set", default="~/data/lfw")
     return parser.parse_args(argv)
 
-if __name__ == '__main__':
-    main(parse_arguments(sys.argv[1:]))
+# if __name__ == '__main__':
+#     main(parse_arguments(sys.argv[1:]))
