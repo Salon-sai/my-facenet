@@ -103,6 +103,7 @@ def generate_evaluate_dataset(dataset):
     # 为了满足之后reshape(-1, 3)，所以需要将数据集进行裁剪
     actual_len = ((len(evaluate_dataset) // 3) * 3)
     evaluate_dataset = evaluate_dataset[:actual_len]
+    issame_array = issame_array[:actual_len]
     return evaluate_dataset, issame_array
 
 def parse_arguments(argv):
