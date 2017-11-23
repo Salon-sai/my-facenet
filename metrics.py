@@ -142,10 +142,10 @@ def calculate_val_far(threshold, dist, actual_issame):
     far : 错误接受比例（错误判断是同一个人的样本数量/不同的类别的总数）
     """
     predict_issame = np.less(dist, threshold)
-    true_accpet = np.logical_and(predict_issame, actual_issame)
-    false_accpet= np.logical_and(predict_issame, np.logical_not(actual_issame))
+    true_accpet = np.sum(np.logical_and(predict_issame, actual_issame))
+    false_accpet= np.sum(np.logical_and(predict_issame, np.logical_not(actual_issame)))
     n_same = np.sum(actual_issame)
     n_diff = np.sum(np.logical_not(actual_issame))
-    val = float(true_accpet) / float(n_same)
-    far = float(false_accpet) / float(n_diff)
+    val = 0 if n_same == 0 else float(true_accpet) / float(n_same)
+    far = 0 if n_diff == 0 else float(false_accpet) / float(n_diff)
     return val, far
