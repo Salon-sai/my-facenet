@@ -1,6 +1,7 @@
 .idea/
 __pycache__/
 logs/
+models/
 out.log
 
 *.pyc

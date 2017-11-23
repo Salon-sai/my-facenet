@@ -338,7 +338,7 @@ def save_variables_and_metagraph(session, saver, summary_writter, model_dir, mod
         start_time = time.time()
         saver.export_meta_graph(metagraph_filename)
         save_time_metagraph = time.time() - start_time
-        print('Metagraph saved in %.2d seconds' % save_time_metagraph)
+        print('Metagraph saved in %.2f seconds' % save_time_metagraph)
 
     # summary = tf.Summary()
 
