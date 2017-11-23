@@ -66,6 +66,7 @@ def split_dataset(dataset):
 def main(args):
     dataset = get_dataset(args.input_dir)
     train_set, valid_set, test_set = split_dataset(dataset)
+    generate_evaluate_dataset(valid_set)
 
 def get_lfw_dataset():
     dataset = get_dataset("~/data/lfw")
@@ -97,14 +98,14 @@ def generate_evaluate_dataset(dataset):
             evaluate_dataset.append((per_person_images[0], other_image))
             issame_array.append(False)
     # 为了满足之后reshape(-1, 3)，所以需要将数据集进行裁剪
-    actual_len = ((len(evaluate_dataset) * 2 // 3) * 3) / 2
+    actual_len = ((len(evaluate_dataset) * 2 // 3) * 3) // 2
     evaluate_dataset = evaluate_dataset[:actual_len]
     return evaluate_dataset, issame_array
 
 def parse_arguments(argv):
     parser = argparse.ArgumentParser()
-    parser.add_argument('input_dir', type=str, help="Directory with training data set")
+    parser.add_argument('--input_dir', type=str, help="Directory with training data set", default="~/data/lfw")
     return parser.parse_args(argv)
 
-# if __name__ == '__main__':
-#     main(parse_arguments(sys.argv[1:]))
+if __name__ == '__main__':
+    main(parse_arguments(sys.argv[1:]))
