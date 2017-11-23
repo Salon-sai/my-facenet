@@ -45,19 +45,26 @@ def _add_loss_summaries(total_loss):
     """
     loss_averages = tf.train.ExponentialMovingAverage(0.9, name='avg')
     # 获取之前在命名为losses的variable
-    losses = tf.get_collection("losses")
+    losses = tf.get_collection('loesses')
     # 把当前的总损失函数与现在的相加
     loss_averages_op = loss_averages.apply(losses + [total_loss])
     for l in losses + [total_loss]:
-        tf.summary.scalar(l.op.name + ' (raw)', l)
-        tf.summary.scalar(l.op.name, loss_averages.average(l))
+        tf.summary.scalar('loss/' + l.op.name + ' (raw)', l)
+        tf.summary.scalar('loss/' + l.op.name, loss_averages.average(l))
     return loss_averages_op
+
+def variable_summaries(var, name):
+    mean = tf.reduce_mean(var)
+    tf.summary.scalar(name + '_mean', mean)
+    tf.summary.scalar(name + '_max', tf.reduce_max(var))
+    tf.summary.scalar(name + '_min', tf.reduce_min(var))
+    tf.summary.histogram(name, var)
 
 def train(total_loss, global_step, optimizer, learning_rate, moving_average_decay, update_gradient_vars, log_histograms=True):
 
-    # loss_averages_op = _add_loss_summaries(total_loss)
+    loss_averages_op = _add_loss_summaries(total_loss)
 
-    with tf.control_dependencies([total_loss]):
+    with tf.control_dependencies([loss_averages_op]):
         if optimizer=='ADAGRAD':
             opt = tf.train.AdagradOptimizer(learning_rate)
         elif optimizer=='ADADELTA':
@@ -78,10 +85,12 @@ def train(total_loss, global_step, optimizer, learning_rate, moving_average_deca
     # 对需要训练的变量记录其直方图
     if log_histograms:
         for var in tf.trainable_variables():
-            tf.summary.histogram(var.op.name, var)
+            variable_summaries(var, var.op.name)
+            # tf.summary.histogram(var.op.name, var)
 
         for grad, var in grads:
-            tf.summary.histogram(var.op.name + "/gradients", grad)
+            variable_summaries(grad, "gradients/" + var.op.name)
+            # tf.summary.histogram("gradients/" + var.op.name, grad)
 
     # 记录各个variable的平均值
     variable_averages = tf.train.ExponentialMovingAverage(

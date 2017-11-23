@@ -7,6 +7,7 @@ import datetime
 import os
 
 import data_process as dp
+import metrics
 import numpy as np
 import tensorflow as tf
 import model_network
@@ -60,6 +61,9 @@ def main(args):
     log_dir = os.path.join(os.path.expanduser(args.logs_base_dir), subdir)
     if not os.path.isdir(log_dir):
         os.makedirs(log_dir)
+    model_dir = os.path.join(os.path.expanduser(args.models_base_dir), subdir)
+    if not os.path.isdir(model_dir):
+        os.makedirs(model_dir)
 
     with tf.Graph().as_default():
         global_step = tf.Variable(0, trainable=False)
@@ -168,12 +172,24 @@ def main(args):
 
                 train(args, session, train_ds, epoch, enqueue_op, image_paths_placeholder, labels_placeholder, labels_batch,
                       batch_size_placeholder, phase_train_placeholder, learning_rate_placeholder,
-                      embeddings, total_loss, train_op, global_step, learning_rate,
+                      embeddings, total_loss, train_op, summary_op,global_step, learning_rate,
                       summary_writer)
+
+                save_variables_and_metagraph(
+                    session=session,
+                    saver=saver,
+                    summary_writter=summary_writer,
+                    model_dir=model_dir,
+                    model_name=subdir,
+                    step=global_step)
+
+                evaluate(session, valid_ds, embeddings, labels_batch, enqueue_op, image_paths_placeholder, labels_placeholder,
+                         batch_size_placeholder, phase_train_placeholder, learning_rate_placeholder, args,
+                         summary_writer, global_step, log_dir)
 
 def train(args, session, dataset, epoch, enqueue_op,image_paths_placeholder, labels_placeholder, labels_batch,
           batch_size_placeholder, phase_train_placeholder, learning_rate_placeholder ,
-          embeddings, loss, train_op, global_step, learning_rate,
+          embeddings, loss, train_op, summary_op, global_step, learning_rate,
           summary_writter):
 
     if args.learning_rate < 0:
@@ -238,9 +254,8 @@ def train(args, session, dataset, epoch, enqueue_op,image_paths_placeholder, lab
         for i in range(nrof_batches):
             start_time = time.time()
             batch_size = min(args.batch_size, nrof_examples - i * args.batch_size)
-            print("batch_size %d\t learning_rate %.4f" % (batch_size, args.learning_rate))
             # 执行训练操作，给神经网络喂养batch_size个样本
-            l, _, gs, lr, emb, lab = session.run([loss, train_op, global_step, learning_rate, embeddings, labels_batch],
+            l, _, train_summary ,gs, lr, emb, lab = session.run([loss, train_op, summary_op,global_step, learning_rate, embeddings, labels_batch],
                         feed_dict={
                             phase_train_placeholder: True,
                             batch_size_placeholder: batch_size,
@@ -250,13 +265,17 @@ def train(args, session, dataset, epoch, enqueue_op,image_paths_placeholder, lab
             args.learning_rate = lr
             emb_array[lab, :] = emb
             loss_array[i] = l
+            # 记录训练时，各个变量的变化
+            summary_writter.add_summary(train_summary, gs)
             duration = time.time() - start_time
-            print("Epoch [%d][%d/%d]\t Global Time %d \t Time %.3f\t Loss %2.3f"
+            print("batch_size %d\t learning_rate %.4f" % (batch_size, lr))
+            print("Epoch [%d][%d/%d]\t Global Step %d \t Time %.3f\t Loss %2.3f"
                   % (epoch, batch_number + 1, args.batch_size, gs, duration, l))
             train_time += duration
             batch_number += 1
-        print("The %d-th epoch spend %.4f s training" % (epoch, train_time))
+        print("The %d batches spend %.4f s training" % (nrof_batches, train_time))
         summary = tf.Summary()
+        summary.value.add(tag="loss/batch_loss", simple_value=np.sum(loss_array))
         summary.value.add(tag="time/selection", simple_value=selection_time)
         summary_writter.add_summary(summary, gs)
 
@@ -306,7 +325,7 @@ def select_triplets(embeddings, nrof_images_per_class, image_paths, people_per_b
     print("number of triplets : %d, expect number of triplets: : %d" % (len(triplets), num_trips))
     return triplets, len(triplets)
 
-def save_variabels_and_metagraph(session, saver, summary_writter, model_dir, model_name, step):
+def save_variables_and_metagraph(session, saver, summary_writter, model_dir, model_name, step):
     start_time = time.time()
     checkpoint_path = os.path.join(model_dir, 'model-%s.ckpt' % model_name)
     saver.save(session, checkpoint_path, global_step=step, write_meta_graph=False)
@@ -321,10 +340,17 @@ def save_variabels_and_metagraph(session, saver, summary_writter, model_dir, mod
         save_time_metagraph = time.time() - start_time
         print('Metagraph saved in %.2d seconds' % save_time_metagraph)
 
+    summary = tf.Summary()
+
+    summary.value.add(tag='time/save_variables', simple_value=save_time_variables)
+    summary.value.add(tag='time/save_metagraph', simple_value=save_time_metagraph)
+    summary_writter.add_summary(summary, step)
+
+
 def evaluate(session, dataset, embeddings, labels_batch, enqueue_op,
              image_paths_placeholder, labels_placeholder, batch_size_placeholder, phase_train_placeholder, learning_rate_placeholder,
-             args):
-    validate_dataset, issame_array = dp.generate_evaluate_dataset(dataset)
+             args, summary_wirter, global_step, log_dir):
+    validate_dataset, actual_issame = dp.generate_evaluate_dataset(dataset)
     nrof_images = len(validate_dataset) * 2
     labels_array = np.reshape(np.arange(nrof_images), (-1, 3))
     image_paths_array = np.reshape(np.expand_dims(np.array(validate_dataset), 1), (-1, 3))
@@ -343,11 +369,26 @@ def evaluate(session, dataset, embeddings, labels_batch, enqueue_op,
                                })
         emb_array[lab, :] = emb
 
+    tpr, fpr, accuracy, val, val_std, far = metrics.evaluate(embeddings, actual_issame, args.evaluate_nrof_folds)
+
+    summary = tf.Summary()
+    summary.value.add(tag="evaluate/accuracy", simple_value=np.mean(accuracy))
+    summary.value.add(tag="evaluate/val_rate", simple_value=val)
+    summary.value.add(tag="evaluate/far_rate(false accept rate)", simple_value=far)
+    summary.value.add(tag="evaluate/tp_mean", simple_value=np.mean(tpr))
+    summary.value.add(tag="evaluate/fp_mean", simple_value=np.mean(fpr))
+
+    summary_wirter.add_summary(summary, global_step)
+    with open(os.path.join(log_dir, 'lfw_result.txt'), 'at') as f:
+        f.write('%d\t%.5f\t%.5f\n' % (global_step, np.mean(accuracy), val))
+
 def parse_arguments(argv):
     parser = argparse.ArgumentParser()
     # parser.add_argument("--gpu_memory_fraction", type=float, help="Upper bound on the amount of GPU memory that will be used by the process.", default=0.3)
     parser.add_argument('--max_nrof_epochs', type=int, help="Number of epochs to run", default=500)
+    parser.add_argument('--evaluate_nrof_folds', type=int, help="Number of folds to use for cross validation. Mainly used for testing.", default=10)
     parser.add_argument("--logs_base_dir", type=str, help='Directory where to write event logs.', default='logs/')
+    parser.add_argument("--models_base_dir", type=str, help='Directory where to write trained models and checkpoints', default='models/')
     parser.add_argument("--image_size", type=int, help="Image size (height, width) in a pixels.", default=160)
     parser.add_argument("--random_flip", help="random horizontal flipping of training images.", action="store_true")
     parser.add_argument("--batch_size", type=int, help="Number of images to process in a batch.", default=90)

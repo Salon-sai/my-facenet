@@ -9,12 +9,21 @@ def evaluate(embeddings, actual_issame, nrof_folds=10):
     thresholds = np.arange(0, 4, 0.01)
     embeddings1 = embeddings[0::2]
     embeddings2 = embeddings[1::2]
-    tpr, fpr, accuracy = calculate_roc(thresholds, embeddings1, embeddings2, np.asarray(actual_issame))
-
+    tpr, fpr, accuracy = calculate_roc(thresholds, embeddings1, embeddings2, np.asarray(actual_issame), nrof_folds)
     thresholds = np.arange(0, 4, 0.001)
+    val, val_std, far = calculate_val(thresholds, embeddings1, embeddings2, np.asarray(actual_issame), 1e-3, nrof_folds)
 
+    return tpr, fpr, accuracy, val, val_std, far
 
 def calculate_roc(thresholds, embeddings1, embeddings2, actual_issame, nrof_folds=10):
+    """
+    :param thresholds: 多个阈值取值
+    :param embeddings1: 校验样本的第一个embedding
+    :param embeddings2: 校验样本的第二个embedding
+    :param actual_issame: 样本是否为同一个类别
+    :param nrof_folds: kfold的分批量
+    :return:
+    """
     assert embeddings1.shape[0] == embeddings2.shape[0]
     assert embeddings1.shape[0] == len(actual_issame)
     assert embeddings1.shape[1] == embeddings2.shape[1]
@@ -53,6 +62,16 @@ def calculate_roc(thresholds, embeddings1, embeddings2, actual_issame, nrof_fold
     return tpr, fpr, accuracy
 
 def calculate_val(thresholds, embeddings1, embeddings2, actual_issame, far_target, nrof_folds=10):
+    """
+
+    :param thresholds:
+    :param embeddings1:
+    :param embeddings2:
+    :param actual_issame:
+    :param far_target:
+    :param nrof_folds:
+    :return:
+    """
     assert embeddings1.shape[0] == embeddings2.shape[0]
     assert embeddings1.shape[1] == embeddings2.shape[1]
 
@@ -73,12 +92,14 @@ def calculate_val(thresholds, embeddings1, embeddings2, actual_issame, far_targe
         for threshold_idx, threshold in enumerate(thresholds):
             _, far_train[threshold_idx] = calculate_val_far(threshold, dist[train_index], actual_issame[train_index])
 
+        # 判断本次k-fold中，所有的far是否低于目标值。若是存在高于目标值，则进行插值处理并根据生成的插值函数重新计算阈值
         if np.max(far_train) >= far_target:
             f = interpolate.interp1d(far_train, thresholds, kind='slinear')
             threshold = f(far_target)
         else:
             threshold = 0
 
+        # 本次fold中，使用最后阈值计算出val,far值
         vals[fold_index], fars[fold_index] = calculate_val_far(threshold, dist[test_index], actual_issame[test_index])
 
     val_mean = np.mean(vals)
@@ -92,7 +113,7 @@ def calculate_accuracy(threshold, dist, actual_issame):
     计算准确率：真准确率，假准确率，误报率，漏报率
     True Positive Rate（真正率）/灵敏度
     False Negative Rate（真负率）/特指度
-    :param threshold: 判断阀门
+    :param threshold: 判断阈值
     :param dist:
     :param actual_issame:
     :return:
@@ -112,11 +133,13 @@ def calculate_accuracy(threshold, dist, actual_issame):
 
 def calculate_val_far(threshold, dist, actual_issame):
     """
-
-    :param threshold:
-    :param dist:
-    :param actual_issame:
+    计算机正确的接受比例和错误接受比例
+    :param threshold: 阈值
+    :param dist: 样本中图片间的距离
+    :param actual_issame: 样本时候相同
     :return:
+    val : 正确接受比例（正确判断是同一个人的样本数量/相同的类别的总数）
+    far : 错误接受比例（错误判断是同一个人的样本数量/不同的类别的总数）
     """
     predict_issame = np.less(dist, threshold)
     true_accpet = np.logical_and(predict_issame, actual_issame)
