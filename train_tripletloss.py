@@ -160,7 +160,7 @@ def main(args):
             summary_writer = tf.summary.FileWriter(logdir=log_dir, graph=session.graph)
 
             coord = tf.train.Coordinator()
-            tf.train.start_queue_runners(coord=coord, sess=session)
+            threads = tf.train.start_queue_runners(coord=coord, sess=session)
 
             epoch = 0
             # 开始进行回合训练
@@ -186,6 +186,9 @@ def main(args):
                 evaluate(session, valid_ds, embeddings, labels_batch, enqueue_op, image_paths_placeholder, labels_placeholder,
                          batch_size_placeholder, phase_train_placeholder, learning_rate_placeholder, args,
                          summary_writer, gs, log_dir)
+
+            coord.request_stop()
+            coord.join(threads)
 
 def train(args, session, dataset, epoch, enqueue_op,image_paths_placeholder, labels_placeholder, labels_batch,
           batch_size_placeholder, phase_train_placeholder, learning_rate_placeholder ,
