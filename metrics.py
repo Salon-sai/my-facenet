@@ -146,10 +146,12 @@ def calculate_accuracy(threshold, dist, actual_issame):
     fn = np.sum(np.logical_and(np.logical_not(predict_issame), actual_issame))
 
     # print("threshold: %.4f\t tp: %d\t fp: %d\t tn: %d\t fn: %d" % (threshold, int(tp), int(fp), int(tn), int(fn)))
-    tpr = 0 if (tp + fn) == 0 else float(tp) / tp + fn
-    fpr = 0 if (tn + fp) == 0 else float(tn) / tn + fp
+    tpr = 0 if (tp + fn) == 0 else float(tp) / float(tp + fn)
+    fpr = 0 if (tn + fp) == 0 else float(tn) / float(tn + fp)
+    if tpr == np.NAN or fpr == np.NAN:
+        print("threshold: %.4f\t tpr: %.5f\t fpr: %.5f" % (threshold, tpr, fpr))
+        print("threshold: %.4f\t tp: %d\t fp: %d\t tn: %d\t fn: %d" % (threshold, int(tp), int(fp), int(tn), int(fn)))
     accuarcy = float(tp + tn) / len(dist)
-    print("threshold: %.4f\t tpr: %.5f\t fpr: %.5f" % (threshold, tpr, fpr))
     return tpr, fpr, accuarcy
 
 def calculate_val_far(threshold, dist, actual_issame):
@@ -171,5 +173,8 @@ def calculate_val_far(threshold, dist, actual_issame):
     #       (threshold, int(true_accept), int(false_accept), int(n_same), int(n_diff)))
     val = 0 if n_same == 0 else float(true_accept) / float(n_same)
     far = 0 if n_diff == 0 else float(false_accept) / float(n_diff)
-    print("threshold: %.4f\t val: %.5f\t far: %.5f" % (threshold, val, far))
+    if val == 1 and far == 1:
+        print("threshold: %.4f\t true_accept: %d\t false_accept: %d\t n_same: %d\t n_diff: %d" % \
+              (threshold, int(true_accept), int(false_accept), int(n_same), int(n_diff)))
+        print("threshold: %.4f\t val: %.5f\t far: %.5f" % (threshold, val, far))
     return val, far
