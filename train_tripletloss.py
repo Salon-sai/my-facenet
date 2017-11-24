@@ -375,13 +375,15 @@ def evaluate(session, dataset, embeddings, labels_batch, enqueue_op,
                                })
         emb_array[lab, :] = emb
 
-    tpr, fpr, accuracy, val, val_std, far, best_threshold = metrics.evaluate(emb_array, actual_issame, args.evaluate_nrof_folds)
+    tpr, fpr, accuracy, val, threshold_var_far, far, best_threshold = \
+        metrics.evaluate(emb_array, actual_issame, args.evaluate_nrof_folds)
 
     summary = tf.Summary()
     summary.value.add(tag="evaluate/accuracy", simple_value=np.mean(accuracy))
     summary.value.add(tag="evaluate/val_rate", simple_value=val)
-    summary.value.add(tag="evaluate/best_threshold", simple_value=best_threshold)
     summary.value.add(tag="evaluate/far_rate(false accept rate)", simple_value=far)
+    summary.value.add(tag="evaluate/best_threshold", simple_value=best_threshold)
+    summary.value.add(tag="evaluate/threshold_var_far", simple_value=threshold_var_far)
     summary.value.add(tag="evaluate/tp_mean", simple_value=np.mean(tpr))
     summary.value.add(tag="evaluate/fp_mean", simple_value=np.mean(fpr))
 

@@ -9,11 +9,13 @@ def evaluate(embeddings, actual_issame, nrof_folds=10):
     thresholds = np.arange(0, 4, 0.01)
     embeddings1 = embeddings[0::2]
     embeddings2 = embeddings[1::2]
-    tpr, fpr, accuracy, best_threshold = calculate_roc(thresholds, embeddings1, embeddings2, np.asarray(actual_issame), nrof_folds)
+    tpr, fpr, accuracy, threshold_accuracy = calculate_roc(thresholds, embeddings1, embeddings2,
+                                                           np.asarray(actual_issame), nrof_folds)
     thresholds = np.arange(0, 4, 0.001)
-    val, val_std, far = calculate_val(thresholds, embeddings1, embeddings2, np.asarray(actual_issame), 1e-3, nrof_folds)
+    val, far, threshold_var_far = calculate_val(thresholds, embeddings1, embeddings2, np.asarray(actual_issame),
+                                                1e-3, nrof_folds)
 
-    return tpr, fpr, accuracy, val, val_std, far, best_threshold
+    return tpr, fpr, accuracy, val, threshold_var_far, far, threshold_accuracy
 
 def calculate_roc(thresholds, embeddings1, embeddings2, actual_issame, nrof_folds=10):
     """
@@ -122,10 +124,17 @@ def calculate_val(thresholds, embeddings1, embeddings2, actual_issame, far_targe
     dist = np.sum(np.square(diff), 1)
     for index, threshold in enumerate(thresholds):
         vals[index], fars[index] = calculate_val_far(threshold, dist, actual_issame)
-    val_mean = np.mean(vals)
-    far_mean = np.mean(fars)
-    val_std = np.std(vals)
-    return val_mean, val_std, far_mean
+    if np.max(fars) >= far_target:
+        f = interpolate.interp1d(fars, thresholds, kind='slinear')
+        threshold = f(far_target)
+    else:
+        threshold = 0
+
+    # val_mean = np.mean(vals)
+    # far_mean = np.mean(fars)
+    # val_std = np.std(vals)
+    val, far = calculate_val_far(threshold, dist, actual_issame)
+    return val, far, threshold
 
 
 def calculate_accuracy(threshold, dist, actual_issame):
