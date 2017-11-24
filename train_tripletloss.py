@@ -175,6 +175,7 @@ def main(args):
                       embeddings, total_loss, train_op, summary_op,global_step, learning_rate,
                       summary_writer)
 
+                print("-------------save variables------------------------------------")
                 save_variables_and_metagraph(
                     session=session,
                     saver=saver,
@@ -183,6 +184,7 @@ def main(args):
                     model_name=subdir,
                     step=global_step)
 
+                print("------------calculate the evaluate variable---------------------")
                 evaluate(session, valid_ds, embeddings, labels_batch, enqueue_op, image_paths_placeholder, labels_placeholder,
                          batch_size_placeholder, phase_train_placeholder, learning_rate_placeholder, args,
                          summary_writer, gs, log_dir)
@@ -249,7 +251,7 @@ def train(args, session, dataset, epoch, enqueue_op,image_paths_placeholder, lab
         # 按照(anchor, positive, negative)图片三元组作为训练一个训练样本
         session.run(enqueue_op, feed_dict={image_paths_placeholder: triplets_path_array, labels_placeholder: labels_array})
         nrof_examples = len(triplets_paths)
-        print("3 times num_triplets: %d nrof_examples: %d" % (3 * num_triplets, nrof_examples))
+        # print("3 times num_triplets: %d nrof_examples: %d" % (3 * num_triplets, nrof_examples))
 
         emb_array = np.zeros((nrof_examples, args.embedding_size))
         loss_array = np.zeros(num_triplets)
@@ -258,7 +260,8 @@ def train(args, session, dataset, epoch, enqueue_op,image_paths_placeholder, lab
             start_time = time.time()
             batch_size = min(args.batch_size, nrof_examples - i * args.batch_size)
             # 执行训练操作，给神经网络喂养batch_size个样本
-            l, _, train_summary,gs, lr, emb, lab = session.run([loss, train_op, summary_op, global_step, learning_rate, embeddings, labels_batch],
+            l, _, gs, lr, emb, lab = session.run([loss, train_op, global_step, learning_rate, embeddings, labels_batch],
+            # l, _, train_summary,gs, lr, emb, lab = session.run([loss, train_op, summary_op, global_step, learning_rate, embeddings, labels_batch],
                         feed_dict={
                             phase_train_placeholder: True,
                             batch_size_placeholder: batch_size,
@@ -269,9 +272,9 @@ def train(args, session, dataset, epoch, enqueue_op,image_paths_placeholder, lab
             emb_array[lab, :] = emb
             loss_array[i] = l
             # 记录训练时，各个变量的变化
-            summary_writter.add_summary(train_summary, gs)
+            # summary_writter.add_summary(train_summary, gs)
             duration = time.time() - start_time
-            print("batch_size %d\t learning_rate %.4f" % (batch_size, lr))
+            # print("batch_size %d\t learning_rate %.4f" % (batch_size, lr))
             print("Epoch [%d][%d/%d]\t Global Step %d \t Time %.3f\t Loss %2.3f"
                   % (epoch, batch_number + 1, args.batch_size, gs, duration, l))
             train_time += duration
