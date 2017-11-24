@@ -125,6 +125,7 @@ def calculate_accuracy(threshold, dist, actual_issame):
     tn = np.sum(np.logical_and(np.logical_not(predict_issame), np.logical_not(actual_issame)))
     fn = np.sum(np.logical_and(np.logical_not(predict_issame), actual_issame))
 
+    print("threshold: %.4f\t tp: %d\t fp: %d\t tn: %d\t fn: %d" % (threshold, int(tp), int(fp), int(tn), int(fn)))
     tpr = 0 if (tp + fn) == 0 else float(tp) / tp + fn
     fpr = 0 if (tn + fp) == 0 else float(tn) / tn + fp
     accuarcy = float(tp + tn) / len(dist)
@@ -142,10 +143,12 @@ def calculate_val_far(threshold, dist, actual_issame):
     far : 错误接受比例（错误判断是同一个人的样本数量/不同的类别的总数）
     """
     predict_issame = np.less(dist, threshold)
-    true_accpet = np.sum(np.logical_and(predict_issame, actual_issame))
-    false_accpet= np.sum(np.logical_and(predict_issame, np.logical_not(actual_issame)))
+    true_accept = np.sum(np.logical_and(predict_issame, actual_issame))
+    false_accept= np.sum(np.logical_and(predict_issame, np.logical_not(actual_issame)))
     n_same = np.sum(actual_issame)
     n_diff = np.sum(np.logical_not(actual_issame))
-    val = 0 if n_same == 0 else float(true_accpet) / float(n_same)
-    far = 0 if n_diff == 0 else float(false_accpet) / float(n_diff)
+    print("true_accept: %d\t false_accept: %d\t n_same: %d\t n_diff: %d" % \
+          (int(true_accept), int(false_accept), int(n_same), int(n_diff)))
+    val = 0 if n_same == 0 else float(true_accept) / float(n_same)
+    far = 0 if n_diff == 0 else float(false_accept) / float(n_diff)
     return val, far
