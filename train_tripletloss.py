@@ -162,6 +162,12 @@ def main(args):
             coord = tf.train.Coordinator()
             threads = tf.train.start_queue_runners(coord=coord, sess=session)
 
+            if args.pretrained_model:
+                ckpt = tf.train.get_checkpoint_state(os.path.expanduser(args.pretrained_model))
+                if ckpt and ckpt.model_checkpoint_path:
+                    print('Pre-trained model: %s' % os.path.expanduser(args.pretrained_model))
+                    saver.restore(session, ckpt.model_checkpoint_path)
+
             epoch = 0
             # 开始进行回合训练
             while epoch < args.max_nrof_epochs:
@@ -396,6 +402,7 @@ def parse_arguments(argv):
     # parser.add_argument("--gpu_memory_fraction", type=float, help="Upper bound on the amount of GPU memory that will be used by the process.", default=0.3)
     parser.add_argument('--max_nrof_epochs', type=int, help="Number of epochs to run", default=500)
     parser.add_argument('--evaluate_nrof_folds', type=int, help="Number of folds to use for cross validation. Mainly used for testing.", default=10)
+    parser.add_argument('--pretrained_model', type=str, help="Load a pretrained model before training starts.")
     parser.add_argument("--logs_base_dir", type=str, help='Directory where to write event logs.', default='logs/')
     parser.add_argument("--models_base_dir", type=str, help='Directory where to write trained models and checkpoints', default='models/')
     parser.add_argument("--image_size", type=int, help="Image size (height, width) in a pixels.", default=160)
