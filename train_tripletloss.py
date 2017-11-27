@@ -318,8 +318,8 @@ def select_triplets(embeddings, nrof_images_per_class, image_paths, people_per_b
                 all_neg_i = np.where(neg_dists - pos_dist < alpha)[0]
                 nrof_random_negs = len(all_neg_i)
                 if nrof_random_negs > 0:
-                    rnd_idx = np.argmin(neg_dists[all_neg_i])
-                    # rnd_idx = np.random.randint(nrof_random_negs) # 源代码通过随机选取neg的idx，而不是选择最小的那个neg_dist
+                    # rnd_idx = np.argmin(neg_dists[all_neg_i])
+                    rnd_idx = np.random.randint(nrof_random_negs) # 源代码通过随机选取neg的idx，而不是选择最小的那个neg_dist
                     neg_i = all_neg_i[rnd_idx]
                     # print("positive dist: %1.4f negative dist %1.4f" % (pos_dist, neg_dists[neg_i]))
                     triplets.append((image_paths[anchor_i], image_paths[pos_i], image_paths[neg_i]))
