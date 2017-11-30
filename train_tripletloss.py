@@ -5,6 +5,7 @@ import itertools
 import os
 import sys
 import time
+import importlib
 
 import numpy as np
 import tensorflow as tf
@@ -58,6 +59,8 @@ def sample_people(dataset, people_per_batch, images_per_person):
     return image_paths, num_per_class
 
 def main(args):
+    network = importlib.import_module(args.model_def)
+
     subdir = datetime.datetime.strftime(datetime.datetime.now(), '%Y%m%d-%H%M%S')
     log_dir = os.path.join(os.path.expanduser(args.logs_base_dir), subdir)
     if not os.path.isdir(log_dir):
@@ -124,10 +127,11 @@ def main(args):
 
 
         # 创建神经网络并得到prelogits向量
-        prelogits = min_model.inference(images=image_batch,
-                                        keep_probability=0.5,
-                                        phase_train=phase_train_placeholder,
-                                        bottleneck_layer_size=args.embedding_size)
+        prelogits = network.inference(images=image_batch,
+                                      phase_train=phase_train_placeholder,
+                                      bottleneck_layer_size=args.embedding_size,
+                                      keep_probability=0.5,
+                                      width_multiplier=args.width_multiplier)
         # 对prelogits进行L2正则化
         embeddings = tf.nn.l2_normalize(x=prelogits, dim=1, epsilon=1e-10, name='embeddings')
 
@@ -362,7 +366,7 @@ def save_variables_and_metagraph(session, saver, summary_writter, model_dir, mod
 
 def evaluate(session, dataset, embeddings, labels_batch, enqueue_op,
              image_paths_placeholder, labels_placeholder, batch_size_placeholder, phase_train_placeholder, learning_rate_placeholder,
-             args, summary_wirter, global_step, log_dir):
+             args, summary_writer, global_step, log_dir):
     validate_dataset, actual_issame = dp.generate_evaluate_dataset(dataset)
     nrof_images = len(validate_dataset) * 2
     labels_array = np.reshape(np.arange(nrof_images), (-1, 3))
@@ -394,19 +398,23 @@ def evaluate(session, dataset, embeddings, labels_batch, enqueue_op,
     summary.value.add(tag="evaluate/tp_mean", simple_value=np.mean(tpr))
     summary.value.add(tag="evaluate/fp_mean", simple_value=np.mean(fpr))
 
-    summary_wirter.add_summary(summary, global_step)
+    summary_writer.add_summary(summary, global_step)
     with open(os.path.join(log_dir, 'lfw_result.txt'), 'at') as f:
         f.write('%d\t%.5f\t%.5f\n' % (global_step, float(np.mean(accuracy)), val))
 
 def parse_arguments(argv):
     parser = argparse.ArgumentParser()
     # parser.add_argument("--gpu_memory_fraction", type=float, help="Upper bound on the amount of GPU memory that will be used by the process.", default=0.3)
+    parser.add_argument('--model_def', type=str, help="Model definition. Point to module containing the definition of "
+                                                      "the inference graph.", default="models.mini_model")
+    parser.add_argument('--width_multiplier', type=float, help="used in mobile net, thinner model", default=0.25)
     parser.add_argument('--max_nrof_epochs', type=int, help="Number of epochs to run", default=500)
-    parser.add_argument('--evaluate_nrof_folds', type=int, help="Number of folds to use for cross validation. Mainly used for testing.", default=10)
-    parser.add_argument('--pretrained_model', type=str, help="Load a pretrained model before training starts.")
+    parser.add_argument('--evaluate_nrof_folds', type=int, help="Number of folds to use for cross validation. "
+                                                                "Mainly used for testing.", default=10)
+    parser.add_argument('--pretrained_model', type=str, help="Load a pre-trained model before training starts.")
     parser.add_argument("--logs_base_dir", type=str, help='Directory where to write event logs.', default='logs/')
     parser.add_argument("--models_base_dir", type=str, help='Directory where to write trained models and checkpoints', default='models/')
-    parser.add_argument("--image_size", type=int, help="Image size (height, width) in a pixels.", default=160)
+    parser.add_argument("--image_size", type=int, help="Image size (height, width) in a pixels.", default=224)
     parser.add_argument("--random_flip", help="random horizontal flipping of training images.", action="store_true")
     parser.add_argument("--batch_size", type=int, help="Number of images to process in a batch.", default=90)
     parser.add_argument("--epoch_size", type=int, help="trainging epoch size", default=1000)
@@ -417,8 +425,10 @@ def parse_arguments(argv):
     parser.add_argument("--learning_rate", type=float, help="training learning rate", default=0.1)
     parser.add_argument('--learning_rate_decay_epochs', type=int, help='Number of epochs between learning rate decay.', default=100)
     parser.add_argument('--learning_rate_decay_factor', type=float, help='Learning rate decay factor.', default=1.0)
-    parser.add_argument('--optimizer', type=str, choices=['ADAGRAD', 'ADADELTA', 'ADAM', 'RMSPROP', 'MOM'], help='The optimization algorithm to use', default='ADAGRAD')
-    parser.add_argument('--moving_average_decay', type=float, help='Exponential decay for tracking of training parameters.', default=0.9999)
+    parser.add_argument('--optimizer', type=str, choices=['ADAGRAD', 'ADADELTA', 'ADAM', 'RMSPROP', 'MOM'],
+                        help='The optimization algorithm to use', default='ADAGRAD')
+    parser.add_argument('--moving_average_decay', type=float,
+                        help='Exponential decay for tracking of training parameters.', default=0.9999)
     return parser.parse_args(argv)
 
 if __name__ == '__main__':
