@@ -1,18 +1,19 @@
 # -*- coding: UTF-8 -*-
 import argparse
-import sys
-import itertools
-import time
 import datetime
+import itertools
 import os
+import sys
+import time
+
+import numpy as np
+import tensorflow as tf
+from tensorflow.python.ops import data_flow_ops
 
 import data_process as dp
 import metrics
-import numpy as np
-import tensorflow as tf
-import model_network
+from model import min_model
 
-from tensorflow.python.ops import data_flow_ops
 
 def sample_people(dataset, people_per_batch, images_per_person):
     """
@@ -123,17 +124,17 @@ def main(args):
 
 
         # 创建神经网络并得到prelogits向量
-        prelogits = model_network.inference(images=image_batch,
-                                               keep_probability=0.5,
-                                               phase_train=phase_train_placeholder,
-                                               bottleneck_layer_size=args.embedding_size)
+        prelogits = min_model.inference(images=image_batch,
+                                        keep_probability=0.5,
+                                        phase_train=phase_train_placeholder,
+                                        bottleneck_layer_size=args.embedding_size)
         # 对prelogits进行L2正则化
         embeddings = tf.nn.l2_normalize(x=prelogits, dim=1, epsilon=1e-10, name='embeddings')
 
         # 把embeddings先变成(?, 3, 128)的tensors，再把其分解成多个(3, 128)tensor，
         # 每个anchor，positive，negative都是(?, 128), ?是batch_size
         anchor, positive, negative = tf.unstack(tf.reshape(embeddings, [-1, 3, args.embedding_size]), 3, 1)
-        triplet_loss = model_network.triplet_loss(anchor, positive, negative, args.alpha)
+        triplet_loss = min_model.triplet_loss(anchor, positive, negative, args.alpha)
 
         learning_rate = tf.train.exponential_decay(learning_rate_placeholder, global_step,
                                                    args.epoch_size * args.learning_rate_decay_epochs,
@@ -144,8 +145,8 @@ def main(args):
 
         total_loss = tf.add_n([triplet_loss] + regularization_losses, name='total_loss')
 
-        train_op = model_network.train(total_loss, global_step, args.optimizer,
-                                       learning_rate, args.moving_average_decay, tf.trainable_variables())
+        train_op = min_model.train(total_loss, global_step, args.optimizer,
+                                   learning_rate, args.moving_average_decay, tf.trainable_variables())
 
         saver = tf.train.Saver(tf.trainable_variables(), max_to_keep=3)
 
