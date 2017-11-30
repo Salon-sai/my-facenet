@@ -4,13 +4,14 @@
 import tensorflow as tf
 import tensorflow.contrib.slim as slim
 
-def inference(images, keep_probability, phase_train, bottleneck_layer_size, reuse=None):
+def inference(images, phase_train, bottleneck_layer_size, reuse=None, **kwargs):
     with slim.arg_scope([slim.convolution2d, slim.fully_connected, slim.separable_convolution2d],
                         weights_initializer=tf.truncated_normal_initializer(stddev=0.1)):
         return mobile_net(inputs=images,
+                          width_multiplier=kwargs['width_multiplier'],
                           is_training=phase_train,
                           bottleneck_layer_size=bottleneck_layer_size,
-                          reuse=reuse)
+                          reuse=reuse,)
 
 def mobile_net(inputs,
                width_multiplier=1,

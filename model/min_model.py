@@ -83,7 +83,7 @@ def mini_facenet(data, keep_probability, phase_train, bottleneck_layer_size, reu
     return net
 
 
-def inference(images, keep_probability, phase_train, bottleneck_layer_size, reuse=None):
+def inference(images, keep_probability, phase_train, bottleneck_layer_size, reuse=None, **kwargs):
     with tf.variable_scope("mini_facenet", reuse=reuse):
         net = slim.repeat(images, 3, block, is_training=phase_train)
         with tf.variable_scope("Logits"):
