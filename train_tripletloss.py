@@ -292,7 +292,7 @@ def train(args, session, dataset, epoch, enqueue_op,image_paths_placeholder, lab
             batch_number += 1
         print("The %d batches spend %.4f s training" % (nrof_batches, train_time))
         summary = tf.Summary()
-        summary.value.add(tag="loss/batch_loss", simple_value=np.sum(loss_array))
+        summary.value.add(tag="loss/batch_loss", simple_value=np.average(loss_array))
         # summary.value.add(tag="time/selection", simple_value=selection_time)
         summary_writter.add_summary(summary, gs)
 

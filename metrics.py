@@ -124,17 +124,19 @@ def calculate_val(thresholds, embeddings1, embeddings2, actual_issame, far_targe
     dist = np.sum(np.square(diff), 1)
     for index, threshold in enumerate(thresholds):
         vals[index], fars[index] = calculate_val_far(threshold, dist, actual_issame)
-    if np.max(fars) >= far_target:
-        f = interpolate.interp1d(fars, thresholds, kind='slinear')
-        threshold = f(far_target)
-    else:
-        threshold = 0
+    # if np.max(fars) >= far_target:
+    #     f = interpolate.interp1d(fars, thresholds, kind='slinear')
+    #     threshold = f(far_target)
+    # else:
+    #     threshold = 0
+
+    best_threshold = thresholds[np.argmax(fars)]
 
     # val_mean = np.mean(vals)
     # far_mean = np.mean(fars)
     # val_std = np.std(vals)
-    val, far = calculate_val_far(threshold, dist, actual_issame)
-    return val, far, threshold
+    val, far = calculate_val_far(best_threshold, dist, actual_issame)
+    return val, far, best_threshold
 
 
 def calculate_accuracy(threshold, dist, actual_issame):
