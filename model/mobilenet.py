@@ -6,7 +6,7 @@ import tensorflow.contrib.slim as slim
 
 def inference(images, keep_probability, phase_train, bottleneck_layer_size, reuse=None):
     with slim.arg_scope([slim.convolution2d, slim.fully_connected, slim.separable_convolution2d],
-                        weigths_initializer=tf.truncated_normal_initializer(stddev=0.1)):
+                        weights_initializer=tf.truncated_normal_initializer(stddev=0.1)):
         return mobile_net(inputs=images,
                           is_training=phase_train,
                           bottleneck_layer_size=bottleneck_layer_size,
@@ -70,7 +70,7 @@ def mobile_net(inputs,
                                 activation_fn=tf.nn.relu,
                                 fused=True):
                 net = slim.convolution2d(inputs, num_outputs=32, kernel_size=[3, 3], stride=2, padding='SAME', scope="conv_1")
-                net = _depthwise_separable_conv(net, num_pwc_filters=64, width_multiplier=width_multiplier, downsample=True, sc="conv_dp_2")
+                net = _depthwise_separable_conv(net, num_pwc_filters=64, width_multiplier=width_multiplier, sc="conv_dp_2")
                 net = _depthwise_separable_conv(net, num_pwc_filters=128, width_multiplier=width_multiplier, downsample=True, sc="conv_dp_3")
                 net = _depthwise_separable_conv(net, num_pwc_filters=128, width_multiplier=width_multiplier, sc="conv_dp_4")
                 net = _depthwise_separable_conv(net, num_pwc_filters=256, width_multiplier=width_multiplier, downsample=True, sc="conv_dp_5")
@@ -87,12 +87,10 @@ def mobile_net(inputs,
                 net = _depthwise_separable_conv(net, num_pwc_filters=1024, width_multiplier=width_multiplier, sc="conv_dp_14")
 
                 net = slim.avg_pool2d(net, kernel_size=[7, 7], scope="avg_pool_15")
-                net = slim.fully_connected(net, 128, activation_fn=None, scope="full_connect_1")
-                net = slim.fully_connected(net, 128, activation_fn=None, scope="full_connect_2")
 
-        end_points = dict(tf.get_collection(end_points_collection))
+        # end_points = dict(tf.get_collection(end_points_collection))
         net = tf.squeeze(net, [1, 2], name="SpatialSqueeze")
-        end_points['squeeze'] = net
+        # end_points['squeeze'] = net
 
         net = slim.fully_connected(net, bottleneck_layer_size, activation_fn=None, scope="Bottleneck", reuse=False)
 
