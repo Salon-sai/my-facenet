@@ -4,4 +4,6 @@ logs/
 models/
 out.log
 
+test_pairs.txt
+
 *.pyc

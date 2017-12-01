@@ -125,7 +125,7 @@ def main(args):
 
         train_ds, valid_ds, test_ds = dp.get_lfw_dataset()
 
-
+        dp.generate_test_pairs(test_ds, args.test_pairs_file)
         # 创建神经网络并得到prelogits向量
         prelogits = network.inference(images=image_batch,
                                       phase_train=phase_train_placeholder,
@@ -429,6 +429,8 @@ def parse_arguments(argv):
                         help='The optimization algorithm to use', default='ADAGRAD')
     parser.add_argument('--moving_average_decay', type=float,
                         help='Exponential decay for tracking of training parameters.', default=0.9999)
+    parser.add_argument('--test_pairs_file', type=str, help="generate the pair images name as test samples",
+                        default="test_pairs.txt")
     return parser.parse_args(argv)
 
 if __name__ == '__main__':

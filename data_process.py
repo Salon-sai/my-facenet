@@ -3,6 +3,8 @@
 import argparse
 import os
 import sys
+import re
+
 import numpy as np
 
 def get_dataset(paths):
@@ -67,9 +69,16 @@ def main(args):
     dataset = get_dataset(args.input_dir)
     train_set, valid_set, test_set = split_dataset(dataset)
     validate_dataset, actual_issame = generate_evaluate_dataset(valid_set)
+    for data, issame in zip(validate_dataset, actual_issame):
+        person1 = data[0].split("/")[-2]
+        person2 = data[1].split("/")[-2]
+        assert (person1 == person2) == issame
+
     nrof_images = len(validate_dataset) * 2
     labels_array = np.reshape(np.arange(nrof_images), (-1, 3))
     image_paths_array = np.reshape(np.expand_dims(np.array(validate_dataset), 1), (-1, 3))
+
+    generate_test_pairs(test_set)
 
 def get_lfw_dataset():
     dataset = get_dataset("~/data/lfw")
@@ -84,6 +93,7 @@ def generate_evaluate_dataset(dataset):
     evaluate_dataset = []
     issame_array = []
     num_people = len(dataset)
+    index_list = np.arange(num_people)
     for index, per_person_images in enumerate(dataset):
         num_images = len(per_person_images)
         if num_images > 1:
@@ -92,7 +102,7 @@ def generate_evaluate_dataset(dataset):
                     evaluate_dataset.append((per_person_images[i], per_person_images[j]))
                     issame_array.append(True)
         elif num_images == 1:
-            other_index = np.random.choice(np.where(num_people != index)[0])
+            other_index = np.random.choice(np.where(index_list != index)[0])
             other_person_images = dataset[other_index]
             if len(other_person_images) == 1:
                 other_image = other_person_images[0]
@@ -106,10 +116,21 @@ def generate_evaluate_dataset(dataset):
     issame_array = issame_array[:actual_len]
     return evaluate_dataset, issame_array
 
+def generate_test_pairs(test_set, test_file="test_pairs.txt"):
+    test_dataset, actual_issame = generate_evaluate_dataset(test_set)
+    patten = re.compile(r'\d+')
+    with open(test_file, 'w') as f:
+        for data, issame in zip(test_dataset, actual_issame):
+            person1 = data[0].split("/")[-2]
+            person1_id = patten.findall(data[0])[-1]
+            person2 = data[1].split("/")[-2]
+            person2_id = patten.findall(data[1])[-1]
+            f.write("\t".join([person1, person1_id, person2, person2_id, str(issame)]) + "\n")
+
 def parse_arguments(argv):
     parser = argparse.ArgumentParser()
     parser.add_argument('--input_dir', type=str, help="Directory with training data set", default="~/data/lfw")
     return parser.parse_args(argv)
 
-# if __name__ == '__main__':
-#     main(parse_arguments(sys.argv[1:]))
+if __name__ == '__main__':
+    main(parse_arguments(sys.argv[1:]))
