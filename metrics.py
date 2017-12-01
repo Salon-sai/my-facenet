@@ -12,7 +12,7 @@ def evaluate(embeddings, actual_issame, nrof_folds=10):
     tpr, fpr, accuracy, threshold_accuracy = calculate_roc(thresholds, embeddings1, embeddings2,
                                                            np.asarray(actual_issame), nrof_folds)
     thresholds = np.arange(0, 4, 0.001)
-    val, far, threshold_var_far = calculate_val(thresholds, embeddings1, embeddings2, np.asarray(actual_issame),
+    val, far, threshold_var_far = calculate_val([threshold_accuracy], embeddings1, embeddings2, np.asarray(actual_issame),
                                                 1e-3, nrof_folds)
 
     return tpr, fpr, accuracy, val, threshold_var_far, far, threshold_accuracy
