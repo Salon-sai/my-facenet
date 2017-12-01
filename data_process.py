@@ -80,8 +80,8 @@ def main(args):
 
     generate_test_pairs(test_set)
 
-def get_lfw_dataset():
-    dataset = get_dataset("~/data/lfw")
+def get_lfw_dataset(lfw_dir):
+    dataset = get_dataset(lfw_dir)
     return split_dataset(dataset=dataset)
 
 def generate_evaluate_dataset(dataset):

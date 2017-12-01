@@ -123,7 +123,7 @@ def main(args):
         # the variable of labels_batch name is label_batch:0
         labels_batch = tf.identity(labels_batch, 'label_batch')
 
-        train_ds, valid_ds, test_ds = dp.get_lfw_dataset()
+        train_ds, valid_ds, test_ds = dp.get_lfw_dataset(args.lfw_dir)
 
         dp.generate_test_pairs(test_ds, args.test_pairs_file)
         # 创建神经网络并得到prelogits向量
@@ -413,6 +413,7 @@ def parse_arguments(argv):
                                                                 "Mainly used for testing.", default=10)
     parser.add_argument('--pretrained_model', type=str, help="Load a pre-trained model before training starts.")
     parser.add_argument("--logs_base_dir", type=str, help='Directory where to write event logs.', default='logs/')
+    parser.add_argument("--lfw_dir", type=str, help="lfw database directory", default="~/data/lfw")
     parser.add_argument("--models_base_dir", type=str, help='Directory where to write trained models and checkpoints', default='models/')
     parser.add_argument("--image_size", type=int, help="Image size (height, width) in a pixels.", default=224)
     parser.add_argument("--random_flip", help="random horizontal flipping of training images.", action="store_true")
