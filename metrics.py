@@ -130,7 +130,7 @@ def calculate_val(thresholds, embeddings1, embeddings2, actual_issame, far_targe
     # else:
     #     threshold = 0
 
-    best_threshold = thresholds[np.argmax(fars)]
+    best_threshold = thresholds[np.argmin(fars)]
 
     # val_mean = np.mean(vals)
     # far_mean = np.mean(fars)
