@@ -42,13 +42,10 @@ def main(args):
         for nemo_id in os.listdir(pp_root_dir):
             pp_nemo_dir = os.path.join(pp_root_dir, nemo_id)
             p_nemo_dir = os.path.join(p_root_dir, nemo_id)
-            s_nemo_dir = os.path.join(save_dir, nemo_id)
+            s_nemo_npy = os.path.join(save_dir, nemo_id)
 
             if not os.path.isdir(p_nemo_dir):
                 os.mkdir(p_nemo_dir)
-
-            if not os.path.isdir(s_nemo_dir):
-                os.mkdir(s_nemo_dir)
 
             for (root, dirs, files) in os.walk(pp_nemo_dir):
                 if len(dirs) == 0:
@@ -76,17 +73,20 @@ def main(args):
 
                 idx_array = np.delete(idx_array, idx)
 
+            representations = []
             # 复制照片到process中
-            for i, face_idces in enumerate(face_array):
+            for i, face_ids in enumerate(face_array):
                 label_dir = os.path.join(p_nemo_dir, str(i))
                 os.mkdir(label_dir)
-                for j, face_index in enumerate(face_idces):
+                for j, face_index in enumerate(face_ids):
                     if j == 0:
                         # 保存到save目录中
-                        np.save(os.path.join(s_nemo_dir, str(i)), emb_arry[face_index])
+                        representations.append(emb_arry[face_index])
+                        # np.save(os.path.join(s_nemo_dir, str(i)), emb_arry[face_index])
                     image_name = image_paths[face_index].split("/")[-1]
                     copyfile(image_paths[face_index], os.path.join(label_dir, image_name))
 
+            np.save(s_nemo_npy, np.asarray(representations))
 
 def load_model(model):
     model_path = os.path.expanduser(model)
