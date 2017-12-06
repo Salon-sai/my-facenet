@@ -19,9 +19,14 @@ def main(args):
     model_dir = os.path.expanduser(args.model_dir)
     pp_root_dir = os.path.join(root_dir, "preprocess")
     p_root_dir = os.path.join(root_dir, "process")
+    save_dir = os.path.join(root_dir, "save")
+
     if not os.path.isdir(p_root_dir):
         os.mkdir(p_root_dir)
-    nrof_images = 0
+
+    if not os.path.isdir(save_dir):
+        os.mkdir(save_dir)
+
     with tf.Session() as session:
         session.run(tf.local_variables_initializer())
         session.run(tf.global_variables_initializer())
@@ -34,38 +39,53 @@ def main(args):
 
 
         image_paths = []
-        for (root, dirs, files) in os.walk(pp_root_dir):
-            if len(dirs) == 0:
-                image_paths += [os.path.join(root, file) for file in files]
+        for nemo_id in os.listdir(pp_root_dir):
+            pp_nemo_dir = os.path.join(pp_root_dir, nemo_id)
+            p_nemo_dir = os.path.join(p_root_dir, nemo_id)
+            s_nemo_dir = os.path.join(save_dir, nemo_id)
 
-        nrof_images = len(image_paths)
+            if not os.path.isdir(p_nemo_dir):
+                os.mkdir(p_nemo_dir)
 
-        idx_array = np.arange(nrof_images)
-        emb_arry = np.zeros((nrof_images, 128))
-        nrof_batch = int(np.ceil(nrof_images / args.batch_size))
-        for i in range(nrof_batch):
-            start_index = i * args.batch_size
-            end_index = min((i + 1) * args.batch_size, nrof_images)
-            images = load_data(image_paths[start_index: end_index], args.image_size)
-            emb_arry[start_index: end_index, :] = session.run(embeddings, feed_dict={images_placeholder: images, phase_train_placeholder: False})
+            if not os.path.isdir(s_nemo_dir):
+                os.mkdir(s_nemo_dir)
+
+            for (root, dirs, files) in os.walk(pp_nemo_dir):
+                if len(dirs) == 0:
+                    image_paths += [os.path.join(root, file) for file in files]
+
+            nrof_images = len(image_paths)
+
+            idx_array = np.arange(nrof_images)  # 记录每张脸的index
+            emb_arry = np.zeros((nrof_images, 128))  # 没张脸的向量信息
+            nrof_batch = int(np.ceil(nrof_images / args.batch_size))
+            for i in range(nrof_batch):
+                start_index = i * args.batch_size
+                end_index = min((i + 1) * args.batch_size, nrof_images)
+                images = load_data(image_paths[start_index: end_index], args.image_size)
+                emb_arry[start_index: end_index, :] = session.run(embeddings, feed_dict={images_placeholder: images, phase_train_placeholder: False})
 
 
-        face_array = []
-        while len(idx_array) > 0:
-            index = idx_array[0]
-            base_emb = emb_arry[index]
-            dist = np.sum(np.square(np.subtract(base_emb, emb_arry[idx_array, :])), 1)
-            idx = np.where(dist < args.threshold)[0].tolist()
-            face_array.append(idx_array[idx])
+            face_array = []  # 保存分类信息
+            while len(idx_array) > 0:
+                index = idx_array[0]
+                base_emb = emb_arry[index]
+                dist = np.sum(np.square(np.subtract(base_emb, emb_arry[idx_array, :])), 1)
+                idx = np.where(dist < args.threshold)[0].tolist()
+                face_array.append(idx_array[idx])
 
-            idx_array = np.delete(idx_array, idx)
+                idx_array = np.delete(idx_array, idx)
 
-        for index, face_idces in enumerate(face_array):
-            label_dir = os.path.join(p_root_dir, str(index))
-            os.mkdir(label_dir)
-            for face_index in face_idces:
-                image_name = image_paths[face_index].split("/")[-1]
-                copyfile(image_paths[face_index], os.path.join(label_dir, image_name))
+            # 复制照片到process中
+            for i, face_idces in enumerate(face_array):
+                label_dir = os.path.join(p_nemo_dir, str(i))
+                os.mkdir(label_dir)
+                for j, face_index in enumerate(face_idces):
+                    if j == 0:
+                        # 保存到save目录中
+                        np.save(os.path.join(s_nemo_dir, str(i)), emb_arry[face_index])
+                    image_name = image_paths[face_index].split("/")[-1]
+                    copyfile(image_paths[face_index], os.path.join(label_dir, image_name))
 
 
 def load_model(model):
