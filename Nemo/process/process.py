@@ -38,20 +38,20 @@ def main(args):
         embeddings = tf.get_default_graph().get_tensor_by_name("embeddings:0")
 
 
-        image_paths = []
         for family_id in os.listdir(pp_root_dir):
             pp_family_dir = os.path.join(pp_root_dir, family_id)
             p_family_dir = os.path.join(p_root_dir, family_id)
             s_family_npy = os.path.join(save_dir, family_id)
+            family_image_paths = []
 
             if not os.path.isdir(p_family_dir):
                 os.mkdir(p_family_dir)
 
             for (root, dirs, files) in os.walk(pp_family_dir):
                 if len(dirs) == 0:
-                    image_paths += [os.path.join(root, file) for file in files]
+                    family_image_paths += [os.path.join(root, file) for file in files]
 
-            nrof_images = len(image_paths)
+            nrof_images = len(family_image_paths)
 
             idx_array = np.arange(nrof_images)  # 记录每张脸的index
             emb_arry = np.zeros((nrof_images, 128))  # 没张脸的向量信息
@@ -59,7 +59,7 @@ def main(args):
             for i in range(nrof_batch):
                 start_index = i * args.batch_size
                 end_index = min((i + 1) * args.batch_size, nrof_images)
-                images = load_data(image_paths[start_index: end_index], args.image_size)
+                images = load_data(family_image_paths[start_index: end_index], args.image_size)
                 emb_arry[start_index: end_index, :] = session.run(embeddings, feed_dict={images_placeholder: images, phase_train_placeholder: False})
 
 
@@ -83,8 +83,8 @@ def main(args):
                         # 保存到save目录中
                         representations.append(emb_arry[face_index])
                         # np.save(os.path.join(s_family_dir, str(i)), emb_arry[face_index])
-                    image_name = image_paths[face_index].split("/")[-1]
-                    copyfile(image_paths[face_index], os.path.join(label_dir, image_name))
+                    image_name = family_image_paths[face_index].split("/")[-1]
+                    copyfile(family_image_paths[face_index], os.path.join(label_dir, image_name))
 
             np.save(s_family_npy, np.asarray(representations))
 
