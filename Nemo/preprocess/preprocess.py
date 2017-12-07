@@ -22,10 +22,10 @@ def main(args):
     with tf.Graph().as_default():
         with tf.Session() as session:
             pnet, rnet, onet = detect_face.create_mtcnn(session, None)
-            for nemo_id in os.listdir(src_dir):
-                nemo_dir = os.path.join(src_dir, nemo_id)
-                target_dir = os.path.join(preprocess_dir, nemo_id)
-                for image_name in os.listdir(nemo_dir):
+            for family_id in os.listdir(src_dir):
+                family_dir = os.path.join(src_dir, family_id)
+                target_dir = os.path.join(preprocess_dir, family_id)
+                for image_name in os.listdir(family_dir):
                     nrof_images_total += 1
                     # 生成照片名称相对应的pre-process目录
                     image_base_name = os.path.splitext(image_name)[0]
@@ -33,7 +33,7 @@ def main(args):
                     if not os.path.isdir(pp_image_dir):
                         os.makedirs(pp_image_dir)
 
-                    image_path = os.path.join(nemo_dir, image_name)
+                    image_path = os.path.join(family_dir, image_name)
                     image = misc.imread(image_path, mode='RGB')
                     bounding_boxes, _ = detect_face.detect_face(image, args.minsize, pnet, rnet, onet,
                                                                 args.threshold, args.factor)
