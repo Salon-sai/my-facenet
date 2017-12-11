@@ -10,10 +10,12 @@ import importlib
 import numpy as np
 import tensorflow as tf
 from tensorflow.python.ops import data_flow_ops
+from tensorflow.python.framework.graph_util import convert_variables_to_constants
 
 import data_process as dp
 import metrics
-from model import min_model
+import optimizer
+# from model import min_model
 
 
 def sample_people(dataset, people_per_batch, images_per_person):
@@ -47,12 +49,12 @@ def sample_people(dataset, people_per_batch, images_per_person):
     # 校验每个类别的采样图片数量是否等于num_per_class对应每个元素的大小
     count = 0
     for i, num in enumerate(num_per_class):
-        standard_class_name = image_paths[count].split("/")[5]
+        standard_class_name = image_paths[count].split("/")[-2]
         for image_path in image_paths[count: count + num]:
             try:
-                assert standard_class_name == image_path.split("/")[5]
+                assert standard_class_name == image_path.split("/")[-2]
             except:
-                print(standard_class_name, image_path.split("/")[5])
+                print(standard_class_name, image_path.split("/")[-2])
                 print(image_paths[count: count + num])
                 print(num, i, len(num_per_class))
         count += num
@@ -138,7 +140,7 @@ def main(args):
         # 把embeddings先变成(?, 3, 128)的tensors，再把其分解成多个(3, 128)tensor，
         # 每个anchor，positive，negative都是(?, 128), ?是batch_size
         anchor, positive, negative = tf.unstack(tf.reshape(embeddings, [-1, 3, args.embedding_size]), 3, 1)
-        triplet_loss = min_model.triplet_loss(anchor, positive, negative, args.alpha)
+        triplet_loss = optimizer.triplet_loss(anchor, positive, negative, args.alpha)
 
         learning_rate = tf.train.exponential_decay(learning_rate_placeholder, global_step,
                                                    args.epoch_size * args.learning_rate_decay_epochs,
@@ -149,7 +151,7 @@ def main(args):
 
         total_loss = tf.add_n([triplet_loss] + regularization_losses, name='total_loss')
 
-        train_op = min_model.train(total_loss, global_step, args.optimizer,
+        train_op = optimizer.train(total_loss, global_step, args.optimizer,
                                    learning_rate, args.moving_average_decay, tf.trainable_variables())
 
         saver = tf.train.Saver(tf.trainable_variables(), max_to_keep=3)
@@ -357,6 +359,9 @@ def save_variables_and_metagraph(session, saver, summary_writter, model_dir, mod
         save_time_metagraph = time.time() - start_time
         print('Metagraph saved in %.2f seconds' % save_time_metagraph)
 
+    output_graph_def = convert_variables_to_constants(session, session.graph_def, output_node_names=["embeddings"])
+    with tf.gfile.FastGFile('models/%s/%s.pb' % (model_name, model_name), mode='wb') as f:
+        f.write(output_graph_def.SerializeToString())
     # summary = tf.Summary()
 
     # summary.value.add(tag='time/save_variables', simple_value=save_time_variables)
