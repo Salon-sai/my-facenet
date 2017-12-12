@@ -5,11 +5,20 @@ import sys
 import os
 
 import tensorflow as tf
+import scipy.io as sio
+
 import optimizer
 
 from model import utils
 from tensorflow.contrib import slim
 import datetime
+
+def load_data(mat_path):
+    mat_data = sio.loadmat(mat_path)
+    imdb_data = mat_data['imdb']
+    image_paths = imdb_data[0][0][2]
+    gender_data = imdb_data[0][0][3]
+    print(gender_data.shape)
 
 def gender_model(embeddings):
     with tf.variable_scope("gender_model"):
@@ -22,6 +31,10 @@ def gender_model(embeddings):
     return net
 
 def main(args):
+    imdb_dir = os.path.expanduser(args.imdb_corp_root)
+    mat_path = os.path.join(imdb_dir, 'imdb.mat')
+    load_data(mat_path)
+    exit()
 
     subdir = datetime.datetime.strftime(datetime.datetime.now(), 'gender-%Y%m%d-%H%M%S')
     log_dir = os.path.join(os.path.expanduser(args.logs_base_dir), subdir)
@@ -74,7 +87,7 @@ def parse_arguments(argv):
     parser.add_argument('model_path', type=str, help="The model of calculating the embedding vector")
     parser.add_argument('mode', type=str, choices=['TRAIN', 'CLASSIFY'],
                         help="Indicates if a new classifier should be trained or a classification", default='CLASSIFY')
-    parser.add_argument('--train_data_dir', type=str, help='train data directory', default="~/data/imdb_corp")
+    parser.add_argument('--imdb_corp_root', type=str, help='The directory of imdb crop data', default="~/data/imdb_crop")
     parser.add_argument('--optimizer', type=str, choices=['ADAGRAD', 'ADADELTA', 'ADAM', 'RMSPROP', 'MOM'],
                         help='The optimization algorithm to use', default='ADAGRAD')
     parser.add_argument("--logs_base_dir", type=str, help='Directory where to write event logs.', default='logs/')
