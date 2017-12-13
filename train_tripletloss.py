@@ -12,7 +12,7 @@ import tensorflow as tf
 from tensorflow.python.ops import data_flow_ops
 from tensorflow.python.framework.graph_util import convert_variables_to_constants
 
-import data_process as dp
+import data_process.lfw_process as dp
 import metrics
 import optimizer
 # from model import min_model
