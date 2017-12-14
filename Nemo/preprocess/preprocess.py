@@ -30,8 +30,6 @@ def main(args):
                     # 生成照片名称相对应的pre-process目录
                     image_base_name = os.path.splitext(image_name)[0]
                     pp_image_dir = os.path.join(target_dir, image_base_name)
-                    if not os.path.isdir(pp_image_dir):
-                        os.makedirs(pp_image_dir)
 
                     image_path = os.path.join(family_dir, image_name)
                     image = misc.imread(image_path, mode='RGB')
@@ -41,10 +39,14 @@ def main(args):
                     if nrof_faces > 0:
                         # det = bounding_boxes[:, 0: 4]
                         # det_arr = []
+                        if not os.path.isdir(pp_image_dir):
+                            os.makedirs(pp_image_dir)
                         img_size = np.asarray(image.shape)[0:2]
                         for index, bounding_box in enumerate(bounding_boxes):
                             bounding_box = np.squeeze(bounding_box)
                             bb = np.zeros(4, dtype=np.int32)
+                            # The square records the origin face square
+                            square = (bounding_box[2] - bounding_box[0]) * (bounding_box[3] - bounding_box[1])
                             bb[0] = np.maximum(bounding_box[0] - margin / 2, 0) # x1
                             bb[1] = np.maximum(bounding_box[1] - margin / 2, 0) # y1
                             bb[2] = np.minimum(bounding_box[2] + margin / 2, img_size[1])   # x2
@@ -53,7 +55,7 @@ def main(args):
                             cropped = image[bb[1]:bb[3],bb[0]:bb[2], :]
                             aligned = misc.imresize(cropped, (args.face_size, args.face_size), interp="bilinear")
                             nrof_successfully_aligned += 1
-                            output_filename = "{}_{}{}".format(image_base_name, index, "." + args.file_ext)
+                            output_filename = "{}_{}_{}_{}".format(image_base_name, square, index, "." + args.file_ext)
                             misc.imsave(os.path.join(pp_image_dir, output_filename), aligned)
                     else:
                         print("can not extract the face from the image : %s" % image_path)

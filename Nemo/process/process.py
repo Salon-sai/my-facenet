@@ -41,7 +41,10 @@ def main(args):
         for family_id in os.listdir(pp_root_dir):
             pp_family_dir = os.path.join(pp_root_dir, family_id)
             p_family_dir = os.path.join(p_root_dir, family_id)
-            s_family_npy = os.path.join(save_dir, family_id)
+            # s_family_npy = os.path.join(save_dir, family_id)
+            s_family_dir = os.path.join(save_dir, family_id)
+            if not os.path.exists(s_family_dir):
+                os.makedirs(s_family_dir)
             family_image_paths = []
 
             if not os.path.isdir(p_family_dir):
@@ -62,7 +65,7 @@ def main(args):
                 images = load_data(family_image_paths[start_index: end_index], args.image_size)
                 emb_arry[start_index: end_index, :] = session.run(embeddings, feed_dict={images_placeholder: images, phase_train_placeholder: False})
 
-
+            # TODO: maybe use the unsupervised learning to category face. Here, I use greedy algorithm, but I think this is a good strategy
             face_array = []  # 保存分类信息
             while len(idx_array) > 0:
                 index = idx_array[0]
@@ -74,19 +77,60 @@ def main(args):
                 idx_array = np.delete(idx_array, idx)
 
             representations = []
-            # 复制照片到process中
+            test_domain_id = -1
+            test_domain_image_path = ""
+            test_domain_represent_vector = np.zeros(128)
+            largeset_area = 0
+
+            # copy file to the process dir
             for i, face_ids in enumerate(face_array):
                 label_dir = os.path.join(p_family_dir, str(i))
                 os.mkdir(label_dir)
+
                 for j, face_index in enumerate(face_ids):
                     if j == 0:
-                        # 保存到save目录中
+                        # In the clustering, we think the first face represents current cluster.
                         representations.append(emb_arry[face_index])
-                        # np.save(os.path.join(s_family_dir, str(i)), emb_arry[face_index])
+
+                        current_area = float(family_image_paths[face_index].split("_")[-3])
+                        if current_area > largeset_area:
+                            test_domain_id = face_index
+                            test_domain_image_path = family_image_paths[face_index]
+                            test_domain_represent_vector = emb_arry[face_index]
+
+                        np.save(os.path.join(s_family_dir, str(i)), emb_arry[face_index])
                     image_name = family_image_paths[face_index].split("/")[-1]
                     copyfile(family_image_paths[face_index], os.path.join(label_dir, image_name))
 
-            np.save(s_family_npy, np.asarray(representations))
+            domain_id, domain_image_path, domain_represent_vector = find_domain_face(representations,
+                                                                                     p_family_dir,
+                                                                                     face_array,
+                                                                                     family_image_paths)
+
+            assert test_domain_id == domain_id
+            assert test_domain_image_path == domain_image_path
+            assert test_domain_represent_vector == domain_represent_vector
+
+            # save the picture to directory of naming "save".
+            # np.save(s_family_npy, np.asarray(representations))
+
+
+def find_domain_face(represent_vectors, p_family_dir, face_array, family_image_paths):
+    domain_id = -1
+    domain_image_path = ""
+    domain_represent_vector = np.zeros(128)
+    lagest_area = 0
+    for label, ids in enumerate(face_array):
+        id = ids[0]
+        label_dir = os.path.join(p_family_dir, str(label))
+        image_path = family_image_paths[id]
+        current_area = float(image_path.split("_")[-3])
+        if current_area > lagest_area:
+            domain_id = id
+            domain_image_path = image_path
+            domain_represent_vector = represent_vectors[label]
+
+    return domain_id, domain_image_path, domain_represent_vector
 
 def load_model(model):
     model_path = os.path.expanduser(model)
