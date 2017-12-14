@@ -59,11 +59,13 @@ def main(args):
             idx_array = np.arange(nrof_images)  # 记录每张脸的index
             emb_arry = np.zeros((nrof_images, 128))  # 没张脸的向量信息
             nrof_batch = int(np.ceil(nrof_images / args.batch_size))
-            for i in range(nrof_batch):
-                start_index = i * args.batch_size
-                end_index = min((i + 1) * args.batch_size, nrof_images)
+            for label in range(nrof_batch):
+                start_index = label * args.batch_size
+                end_index = min((label + 1) * args.batch_size, nrof_images)
                 images = load_data(family_image_paths[start_index: end_index], args.image_size)
                 emb_arry[start_index: end_index, :] = session.run(embeddings, feed_dict={images_placeholder: images, phase_train_placeholder: False})
+
+            print("finish calculation of current %s-th family face vectors" % family_id)
 
             # TODO: maybe use the unsupervised learning to category face. Here, I use greedy algorithm, but I think this is a good strategy
             face_array = []  # 保存分类信息
@@ -76,61 +78,90 @@ def main(args):
 
                 idx_array = np.delete(idx_array, idx)
 
+            print("clustering the face and there are %d categories" % len(face_array))
+
             representations = []
             test_domain_id = -1
             test_domain_image_path = ""
             test_domain_represent_vector = np.zeros(128)
-            largeset_area = 0
+            test_domain_label = 0
+            largest_area = 0
 
             # copy file to the process dir
-            for i, face_ids in enumerate(face_array):
-                label_dir = os.path.join(p_family_dir, str(i))
+            for label, face_ids in enumerate(face_array):
+                label_dir = os.path.join(p_family_dir, str(label))
                 os.mkdir(label_dir)
 
                 for j, face_index in enumerate(face_ids):
                     if j == 0:
                         # In the clustering, we think the first face represents current cluster.
                         representations.append(emb_arry[face_index])
+                        np.save(os.path.join(s_family_dir, str(label)), emb_arry[face_index])
 
                         current_area = float(family_image_paths[face_index].split("_")[-3])
-                        if current_area > largeset_area:
+                        if current_area > largest_area:
+                            largest_area = current_area
                             test_domain_id = face_index
                             test_domain_image_path = family_image_paths[face_index]
                             test_domain_represent_vector = emb_arry[face_index]
+                            test_domain_label = label
 
-                        np.save(os.path.join(s_family_dir, str(i)), emb_arry[face_index])
                     image_name = family_image_paths[face_index].split("/")[-1]
                     copyfile(family_image_paths[face_index], os.path.join(label_dir, image_name))
 
-            domain_id, domain_image_path, domain_represent_vector = find_domain_face(representations,
+            domain_id, domain_image_path, domain_represent_vector, domain_label = find_domain_face(representations,
                                                                                      p_family_dir,
                                                                                      face_array,
                                                                                      family_image_paths)
 
             assert test_domain_id == domain_id
             assert test_domain_image_path == domain_image_path
-            assert test_domain_represent_vector == domain_represent_vector
+            assert test_domain_represent_vector.all() == domain_represent_vector.all()
+            assert test_domain_label == domain_label
 
+            save_domain_info(root_dir, domain_image_path, family_id, domain_represent_vector, domain_label)
+            print("save the domain information, current family id : %s, domain_label : %s" %
+                  (str(family_id), str(domain_label)))
+
+            print("----------------------------------------\n")
             # save the picture to directory of naming "save".
             # np.save(s_family_npy, np.asarray(representations))
+
+def save_domain_info(root_dir, image_path, family_id, represent_vector, label):
+    domain_root_dir = os.path.join(root_dir, "domain")
+    if not os.path.exists(domain_root_dir):
+        os.makedirs(domain_root_dir)
+
+    family_dir = os.path.join(domain_root_dir, family_id)
+    if not os.path.exists(family_dir):
+        os.makedirs(family_dir)
+
+    np.save(os.path.join(family_dir, str(label)), represent_vector)
+
+    image_name = image_path.split("/")[-1]
+    copyfile(image_path, os.path.join(family_dir, image_name))
 
 
 def find_domain_face(represent_vectors, p_family_dir, face_array, family_image_paths):
     domain_id = -1
     domain_image_path = ""
     domain_represent_vector = np.zeros(128)
-    lagest_area = 0
+    domain_label = 0
+
+    largest_area = 0
     for label, ids in enumerate(face_array):
         id = ids[0]
         label_dir = os.path.join(p_family_dir, str(label))
         image_path = family_image_paths[id]
         current_area = float(image_path.split("_")[-3])
-        if current_area > lagest_area:
+        if current_area > largest_area:
+            largest_area = current_area
             domain_id = id
             domain_image_path = image_path
             domain_represent_vector = represent_vectors[label]
+            domain_label = label
 
-    return domain_id, domain_image_path, domain_represent_vector
+    return domain_id, domain_image_path, domain_represent_vector, domain_label
 
 def load_model(model):
     model_path = os.path.expanduser(model)
