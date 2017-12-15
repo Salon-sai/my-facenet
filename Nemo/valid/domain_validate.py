@@ -7,14 +7,16 @@ import argparse
 import numpy as np
 import tensorflow as tf
 
+from shutil import copyfile
 from scipy import misc
 
 import Nemo.valid.face as face_module
+import matplotlib.pyplot as plt
 
 from Nemo.preprocess.align import detect_face
 
-
 from sklearn import metrics
+from sklearn.preprocessing import normalize, MinMaxScaler
 
 class SampleFace(face_module.Face):
     def __init__(self, face, family_domain_vector, is_domain):
@@ -39,8 +41,19 @@ class SampleFace(face_module.Face):
         return self._dist
 
     def _calculate_dist(self):
+        # self_embed = normalize(self.embedding[:, np.newaxis], axis=0, norm="max").ravel()
+        # domain_embed = normalize(self._family_domain_vector[:, np.newaxis], axis=0, norm="max").ravel()
+        # self_embed = MinMaxScaler().fit_transform(self.embedding[:, np.newaxis]).ravel()
+        # domain_embed = MinMaxScaler().fit_transform(self._family_domain_vector[:, np.newaxis]).ravel()
+        # diff = np.subtract(self_embed, domain_embed)
+        # diff = np.subtract(self.max_min(self.embedding), self.max_min(self._family_domain_vector))
         diff = np.subtract(self.embedding, self._family_domain_vector)
         self._dist = np.sum(np.square(diff))
+
+    def max_min(self, vector):
+        max_value = np.max(vector)
+        min_value = np.min(vector)
+        return (vector - min_value) / (max_value - min_value)
 
 def main(args):
     root_dir = os.path.expanduser(args.data_dir)
@@ -104,10 +117,33 @@ def main(args):
         accuracies.append(accuracy)
 
     auc = metrics.auc(fprs, tprs)
-    print("Best Accuracy: %1.3f and the threshold: %1.4f" % (np.max(accuracies), thresholds[np.argmax(accuracies)]))
+    plt.plot(fprs, tprs, color="r", label="ROC")
+    plt.plot([0, 1], [0, 1], '--',color="b", label="Base")
+    plt.ylabel("True Positive")
+    plt.xlabel("False Positive")
+
+
+    print("Best Accuracy: %1.3f, When threshold: %1.4f, ture positive: %1.3f, false positive: %1.3f" %
+          (np.max(accuracies), thresholds[np.argmax(accuracies)],
+                                          tprs[int(np.argmax(accuracies))], fprs[int(np.argmax(accuracies))]))
     print("Accuracy: %1.3f+-%1.3f" % (np.mean(accuracies), np.std(accuracies)))
+    print("Total number of positive sample: %d, Total number of negative sample: %d"
+          % (np.sum(is_domains), np.sum(np.logical_not(is_domains))))
+    print("True Positive rate: %1.3f+-%1.3f, False Positive rate: %1.3f+-%1.3f" %
+          (np.mean(tprs), np.std(tprs), np.mean(fprs), np.std(fprs)))
     print('Area Under Curve (AUC): %1.3f' % auc)
+    plt.legend()
+    plt.title('Area Under Curve (AUC): %1.3f' % auc)
+    plt.show()
     # print(np.mean(tprs), np.mean(fprs), np.mean(accuracies))
+
+def save_ok_image(image_path, output_dir):
+    if not os.path.exists(output_dir):
+        os.makedirs(output_dir)
+    output_path = output_dir + "/" + "/".join(image_path.split("/")[-3:])
+    if not os.path.exists("/".join(output_path.split("/")[:-1])):
+        os.makedirs("/".join(output_path.split("/")[:-1]))
+    copyfile(image_path, output_path)
 
 def predict_is_domain(sample_faces, actual_is_domain, threshold):
     predicts = [sample_face.predict(threshold) for sample_face in sample_faces]
@@ -130,7 +166,7 @@ def parse_arguments(argv):
     parser.add_argument("facenet_model_dir", type=str, help="The directory of FaceNet model")
     parser.add_argument("--face_size", type=int, help="The cropped size of face", default=160)
     parser.add_argument("--minsize", type=int, help="minimum size of face", default=20)
-    parser.add_argument("--mtcnn_threshold", type=list, help="three model threshold", default=[0.6, 0.7, 0.7])
+    parser.add_argument("--mtcnn_threshold", type=list, help="three model threshold", default=[0.8, 0.8, 0.8])
     parser.add_argument("--factor", type=float, help="scale factor", default=0.709)
     parser.add_argument("--margin", type=int, help="Margin for the crop around the bounding box (height, width) "
                                                    "in pixels.", default=44)
