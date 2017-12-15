@@ -1,6 +1,7 @@
 # -*- coding: utf-8 -*-
 
 import os
+import time
 
 import tensorflow as tf
 import numpy as np
@@ -36,12 +37,14 @@ class Face(object):
     def embedding(self, embedding):
         self._embedding = embedding
 
-def detect_faces(img_info, minsize, mtccn_threshold, factor, margin, face_size):
+def detect_faces(img_info, minsize, mtccn_threshold, factor, margin, face_size, multi_detect=False):
     faces = []
-
+    remove_ids = []
+    nrof_extract_err = 0
     with tf.Session() as session:
         pnet, rnet, onet = detect_face.create_mtcnn(session, None)
-        for image_path, family_id in img_info:
+        start_time = time.time()
+        for img_info_i, (image_path, family_id) in enumerate(img_info):
             image = misc.imread(image_path, mode='RGB')
             bounding_boxes, _ = detect_face.detect_face(image, minsize, pnet, rnet, onet,
                                                         mtccn_threshold, factor)
@@ -49,6 +52,12 @@ def detect_faces(img_info, minsize, mtccn_threshold, factor, margin, face_size):
             if nrof_faces > 0:
                 image_size = np.asarray(image.shape)[0:2]
                 for index, bounding_box in enumerate(bounding_boxes):
+                    if not multi_detect and nrof_faces > 1:
+                        nrof_extract_err += 1
+                        remove_ids.append(img_info_i)
+                        print("It detects multi face, image path %s, the number "
+                              "of faces: %d" % (image_path, nrof_faces))
+                        break
                     bounding_box = np.squeeze(bounding_box)
                     bb = np.zeros(4, dtype=np.int32)
                     bb[0] = np.maximum(bounding_box[0] - margin / 2, 0)  # x1
@@ -61,9 +70,12 @@ def detect_faces(img_info, minsize, mtccn_threshold, factor, margin, face_size):
                     face = Face(aligned, family_id, image_path)
                     faces.append(face)
             else:
+                remove_ids.append(img_info_i)
+                nrof_extract_err += 1
                 print("can not extract the face from the image : %s" % image_path)
-
-    return faces
+        end_time = time.time() - start_time
+    print("Extract image: %d Using detect time %f" % (len(img_info), end_time))
+    return faces, nrof_extract_err, remove_ids
 
 def calculate_embeddings(faces, facenet_model_dir, batch_size):
     with tf.Session() as session:
