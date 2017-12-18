@@ -7,8 +7,8 @@ import tensorflow as tf
 import numpy as np
 
 from scipy import misc
-from Nemo.preprocess.align import detect_face
-from Nemo.process import process
+from pipeline.preprocess.align import detect_face
+from pipeline.process import process
 
 class Face(object):
 

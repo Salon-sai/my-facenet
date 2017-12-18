@@ -12,7 +12,7 @@ The code is tested using Tensorflow 1.2 under Ubuntu 16.10 with Python 3.5
 
 ## Codes
 
-- Nemo Fold : Pipeline In Xiao Yu
+- pipeline Fold : Pipeline In Xiao Yu
 - model Fold: The CNNs models used to extract the image features
 
 ## Training data

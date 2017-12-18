@@ -8,7 +8,7 @@ from scipy import misc
 import tensorflow as tf
 import numpy as np
 
-import Nemo.preprocess.align.detect_face as detect_face
+import pipeline.preprocess.align.detect_face as detect_face
 
 def main(args):
     nrof_images_total = 0

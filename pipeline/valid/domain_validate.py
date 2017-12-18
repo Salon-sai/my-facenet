@@ -10,10 +10,10 @@ import tensorflow as tf
 from shutil import copyfile
 from scipy import misc
 
-import Nemo.valid.face as face_module
+import pipeline.valid.face as face_module
 import matplotlib.pyplot as plt
 
-from Nemo.preprocess.align import detect_face
+from pipeline.preprocess.align import detect_face
 
 from sklearn import metrics
 from sklearn.preprocessing import normalize, MinMaxScaler
@@ -41,12 +41,6 @@ class SampleFace(face_module.Face):
         return self._dist
 
     def _calculate_dist(self):
-        # self_embed = normalize(self.embedding[:, np.newaxis], axis=0, norm="max").ravel()
-        # domain_embed = normalize(self._family_domain_vector[:, np.newaxis], axis=0, norm="max").ravel()
-        # self_embed = MinMaxScaler().fit_transform(self.embedding[:, np.newaxis]).ravel()
-        # domain_embed = MinMaxScaler().fit_transform(self._family_domain_vector[:, np.newaxis]).ravel()
-        # diff = np.subtract(self_embed, domain_embed)
-        # diff = np.subtract(self.max_min(self.embedding), self.max_min(self._family_domain_vector))
         diff = np.subtract(self.embedding, self._family_domain_vector)
         self._dist = np.sum(np.square(diff))
 
@@ -137,13 +131,10 @@ def main(args):
     plt.show()
     # print(np.mean(tprs), np.mean(fprs), np.mean(accuracies))
 
-def save_ok_image(image_path, output_dir):
-    if not os.path.exists(output_dir):
-        os.makedirs(output_dir)
-    output_path = output_dir + "/" + "/".join(image_path.split("/")[-3:])
-    if not os.path.exists("/".join(output_path.split("/")[:-1])):
-        os.makedirs("/".join(output_path.split("/")[:-1]))
-    copyfile(image_path, output_path)
+def category_family(faces):
+    categoried = dict()
+    for face in faces:
+        categoried.keys()
 
 def predict_is_domain(sample_faces, actual_is_domain, threshold):
     predicts = [sample_face.predict(threshold) for sample_face in sample_faces]

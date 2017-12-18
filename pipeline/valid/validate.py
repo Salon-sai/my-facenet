@@ -4,7 +4,7 @@ import argparse
 import sys
 import os
 
-from Nemo.valid.face import detect_faces, calculate_embeddings, compare_and_save
+from pipeline.valid.face import detect_faces, calculate_embeddings, compare_and_save
 
 def main(args):
     root_dir = os.path.expanduser(args.data_dir)
