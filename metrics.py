@@ -6,7 +6,7 @@ from sklearn.model_selection import KFold
 
 def evaluate(embeddings, actual_issame, nrof_folds=10):
     # 正负判断的threshold
-    thresholds = np.arange(0, 4, 0.01)
+    thresholds = np.arange(0, 1, 0.01)
     embeddings1 = embeddings[0::2]
     embeddings2 = embeddings[1::2]
     tpr, fpr, accuracy, threshold_accuracy = calculate_roc(thresholds, embeddings1, embeddings2,
@@ -158,7 +158,7 @@ def calculate_accuracy(threshold, dist, actual_issame):
 
     # print("threshold: %.4f\t tp: %d\t fp: %d\t tn: %d\t fn: %d" % (threshold, int(tp), int(fp), int(tn), int(fn)))
     tpr = 0 if (tp + fn) == 0 else float(tp) / float(tp + fn)
-    fpr = 0 if (tn + fp) == 0 else float(tn) / float(tn + fp)
+    fpr = 0 if (tn + fp) == 0 else float(fp) / float(tn + fp)
     accuarcy = float(tp + tn) / len(dist)
     return tpr, fpr, accuarcy
 
