@@ -13,6 +13,7 @@ import sklearn
 
 from scipy import misc
 from model import utils
+from shutil import copy2
 
 def main(args):
     with tf.Graph().as_default():
@@ -21,7 +22,7 @@ def main(args):
 
             data_dir = os.path.expanduser(args.data_dir)
             paths, actual_issame = load_pair(data_dir)
-            actual_issame = np.asarray(actual_issame)
+
             utils.load_model(os.path.expanduser(args.model))
 
             # Get input and output tensors
@@ -42,45 +43,67 @@ def main(args):
                 start = i * batch_size
                 end = min((i + 1) * batch_size, nrof_images)
                 images_path = paths[start: end]
-                images = np.zeros((end - start, image_size, image_size, 3))
-                for j, image_path in enumerate(images_path):
-                    images[j, :, :, :] = misc.imread(image_path)
+                images = load_image(images_path, image_size)
                 emb_array[start:end, :] = session.run(embeddings, feed_dict={images_placeholder:images, phase_train_placeholder:False})
 
             thresholds = np.arange(0, 1, 0.01)
             tprs, fprs, accuracy, _, _, _, _ = metrics.evaluate(emb_array, actual_issame)
 
-            plt.subplot(211)
-            auc = sklearn.metrics.auc(fprs, tprs)
             best_threshold_index = np.argmax(accuracy)
+            best_threshold = thresholds[best_threshold_index]
+            find_and_save_bad_sample_ids(best_threshold, emb_array, actual_issame,
+                                         paths, data_dir + "_incorrect")
+
             print("When threshold %1.3f, we get best accuracy: %1.3f, true positive rate %1.3f, false positive rate %1.3f"
                   % (thresholds[best_threshold_index], np.max(accuracy), tprs[best_threshold_index], fprs[best_threshold_index]))
             print("Number of positive sample : %d, Number of positive sample : %d"
                   % (int(np.sum(actual_issame)), int(np.sum(np.logical_not(actual_issame)))))
 
-            plt.plot(fprs, tprs, color="r", label="ROC")
-            plt.plot([0, 1], [0, 1], '--',color="b", label="Base")
-            plt.ylabel("True Positive")
-            plt.xlabel("False Positive")
-            plt.legend()
-            plt.title('Area Under Curve (AUC): %1.3f' % auc)
+            # draw_statistics_plot(fprs, tprs, thresholds, accuracy)
 
-            plt.subplot(234)
-            plt.plot(thresholds, accuracy, label="Accuracy")
-            plt.xlabel("Threshold")
-            plt.title("Mean Accuracy with Standard Deviation: %1.3f+-%1.3f" % (np.mean(accuracy), np.std(accuracy)))
 
-            plt.subplot(235)
-            plt.plot(thresholds, tprs, label="True Positive Rate (TPR)")
-            plt.xlabel("Threshold")
-            plt.title("Mean TPR with Standard Deviation: %1.3f+-%1.3f" % (np.mean(tprs), np.std(tprs)))
+def find_and_save_bad_sample_ids(threshold, embeddings, actual_issames, paths, output_dir):
+    embeddings1 = embeddings[0::2]
+    embeddings2 = embeddings[1::2]
+    dist = np.sum(np.square(np.subtract(embeddings1, embeddings2)), 1)
+    best_predict = np.less(dist, threshold)
+    predict_incorrect = np.logical_xor(best_predict, actual_issames)
+    incorrect_ids = np.where(predict_incorrect == True)[0]
+    incorrect_paths = paths.reshape(-1, 2)[incorrect_ids]
+    incorrect_paths = incorrect_paths.flatten()
+    for path in incorrect_paths:
+        subdir = "/".join(path.split("/")[-3: -1])
+        output_subdir = os.path.join(output_dir, subdir)
+        if not os.path.exists(output_subdir):
+            os.makedirs(output_subdir)
+        copy2(path, output_subdir)
 
-            plt.subplot(236)
-            plt.plot(thresholds, tprs, label="False Positive Rate (FPR)")
-            plt.xlabel("Threshold")
-            plt.title("Mean FPR with Standard Deviation: %1.3f+-%1.3f" % (np.mean(fprs), np.std(fprs)))
+def draw_statistics_plot(fprs, tprs, thresholds, accuracy):
+    plt.subplot(211)
+    auc = sklearn.metrics.auc(fprs, tprs)
+    plt.plot(fprs, tprs, color="r", label="ROC")
+    plt.plot([0, 1], [0, 1], '--', color="b", label="Base")
+    plt.ylabel("True Positive")
+    plt.xlabel("False Positive")
+    plt.legend()
+    plt.title('Area Under Curve (AUC): %1.3f' % auc)
 
-            plt.show()
+    plt.subplot(234)
+    plt.plot(thresholds, accuracy, label="Accuracy")
+    plt.xlabel("Threshold")
+    plt.title("Mean Accuracy with Standard Deviation: %1.3f+-%1.3f" % (np.mean(accuracy), np.std(accuracy)))
+
+    plt.subplot(235)
+    plt.plot(thresholds, tprs, label="True Positive Rate (TPR)")
+    plt.xlabel("Threshold")
+    plt.title("Mean TPR with Standard Deviation: %1.3f+-%1.3f" % (np.mean(tprs), np.std(tprs)))
+
+    plt.subplot(236)
+    plt.plot(thresholds, tprs, label="False Positive Rate (FPR)")
+    plt.xlabel("Threshold")
+    plt.title("Mean FPR with Standard Deviation: %1.3f+-%1.3f" % (np.mean(fprs), np.std(fprs)))
+
+    plt.show()
 
 def load_image(image_paths, image_size):
     images = np.zeros((len(image_paths), image_size, image_size, 3))
@@ -94,6 +117,7 @@ def load_image(image_paths, image_size):
             image = image[(sz1 - sz2 + v): (sz1 + sz2 + v), (sz1 - sz2 + h) : (sz1 + sz2 + h), :]
             image = prewhiten(image)
         images[i, :, :, :] = image
+    return images
 
 def prewhiten(x):
     mean = np.mean(x)
@@ -125,7 +149,7 @@ def load_pair(data_dir):
             num_pair += 1
         actual_issame += [issame] * num_pair
     assert len(actual_issame) * 2 == len(pairs)
-    return pairs, actual_issame
+    return np.asarray(pairs), np.asarray(actual_issame)
 
 
 def parse_arguments(argv):
