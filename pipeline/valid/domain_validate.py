@@ -90,7 +90,7 @@ def main(args):
 
                                 cropped = image[bb[1]:bb[3], bb[0]:bb[2], :]
                                 aligned = misc.imresize(cropped, (args.face_size, args.face_size), interp="bilinear")
-
+                                aligned = prewhiten(aligned)
                                 face = face_module.Face(aligned, family_id, image_path)
                                 sample_face = SampleFace(face, domain_vector, isdomain)
                                 sample_faces.append(sample_face)
@@ -100,7 +100,7 @@ def main(args):
 
     is_domains = np.asarray([sample_face.is_domain for sample_face in sample_faces])
 
-    thresholds = np.arange(0, 1, 0.001)
+    thresholds = np.arange(0, 2, 0.01)
     tprs = []
     fprs = []
     accuracies = []
@@ -135,6 +135,13 @@ def category_family(faces):
     categoried = dict()
     for face in faces:
         categoried.keys()
+
+def prewhiten(x):
+    mean = np.mean(x)
+    std = np.std(x)
+    std_adj = np.maximum(std, 1.0/np.sqrt(x.size))
+    y = np.multiply(np.subtract(x, mean), 1/std_adj)
+    return y
 
 def predict_is_domain(sample_faces, actual_is_domain, threshold):
     predicts = [sample_face.predict(threshold) for sample_face in sample_faces]
