@@ -3,6 +3,7 @@
 import sys
 import os
 import argparse
+import cv2
 
 import tensorflow as tf
 import numpy as np
@@ -46,7 +47,7 @@ def main(args):
                 images = load_image(images_path, image_size)
                 emb_array[start:end, :] = session.run(embeddings, feed_dict={images_placeholder:images, phase_train_placeholder:False})
 
-            thresholds = np.arange(0, 1, 0.01)
+            thresholds = np.arange(0, 4, 0.01)
             tprs, fprs, accuracy, _, _, _, _ = metrics.evaluate(emb_array, actual_issame)
 
             best_threshold_index = np.argmax(accuracy)
@@ -59,7 +60,7 @@ def main(args):
             print("Number of positive sample : %d, Number of positive sample : %d"
                   % (int(np.sum(actual_issame)), int(np.sum(np.logical_not(actual_issame)))))
 
-            # draw_statistics_plot(fprs, tprs, thresholds, accuracy)
+            draw_statistics_plot(fprs, tprs, thresholds, accuracy)
 
 
 def find_and_save_bad_sample_ids(threshold, embeddings, actual_issames, paths, output_dir):
@@ -115,7 +116,7 @@ def load_image(image_paths, image_size):
             diff = sz1 - sz2
             (h, v) = (np.random.randint(-diff, diff + 1), np.random.randint(-diff, diff + 1))
             image = image[(sz1 - sz2 + v): (sz1 + sz2 + v), (sz1 - sz2 + h) : (sz1 + sz2 + h), :]
-            image = prewhiten(image)
+        image = prewhiten(image)
         images[i, :, :, :] = image
     return images
 
@@ -125,6 +126,22 @@ def prewhiten(x):
     std_adj = np.maximum(std, 1.0/np.sqrt(x.size))
     y = np.multiply(np.subtract(x, mean), 1/std_adj)
     return y
+
+def image_equalizehist(x):
+    yuv = cv2.cvtColor(x, cv2.COLOR_BGR2YUV)
+    yuv[:, :, 0] = cv2.equalizeHist(yuv[:, :, 0])
+    y = cv2.cvtColor(yuv, cv2.COLOR_YUV2RGB)
+    print(np.shape(y))
+    return y
+
+def image_preprocess(image):
+    laplacian = cv2.Laplacian(image, cv2.CV_64F)
+    # img_yuv = cv2.cvtColor(image, cv2.COLOR_BGR2YUV)
+    # img_yuv[:, :, 0] = cv2.equalizeHist(img_yuv[:, :, 0])
+    # img_output = cv2.cvtColor(img_yuv, cv2.COLOR_YUV2BGR)
+    cv2.imshow("Color input image", image)
+    cv2.imshow("Histogram equalized", laplacian)
+    cv2.waitKey(10000)
 
 def load_pair(data_dir):
     actual_issame = []
