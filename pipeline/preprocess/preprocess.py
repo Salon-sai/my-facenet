@@ -70,7 +70,7 @@ def parse_arguments(argv):
     parser.add_argument('data_dir', type=str, help="the directory of data set")
     # parser.add_argument('model_dir', type=str, help="the directory of model used as face detection")
     parser.add_argument("--minsize", type=int, help="minimum size of face", default=20)
-    parser.add_argument("--threshold", type=list, help="three model threshold", default=[0.6, 0.7, 0.7])
+    parser.add_argument("--threshold", nargs="+", type=float, help="three model threshold", default=[0.6, 0.7, 0.7])
     parser.add_argument("--factor", type=float, help="scale factor", default=0.709)
     parser.add_argument("--face_size", type=int, help="the size of each cropped faces", default=224)
     parser.add_argument("--margin", type=int, help="Margin for the crop around the bounding box (height, width) "
