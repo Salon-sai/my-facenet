@@ -79,6 +79,17 @@ def main(args):
 
 def process_cluster(face_array, process_family_dir, emb_array, save_family_dir,
                     family_image_paths, root_dir, family_id):
+    """
+    find the main face in current family and save the main face and this embedding vector
+    :param face_array:
+    :param process_family_dir: the name is "process" in current data directory
+    :param emb_array: the embeddings of all family face
+    :param save_family_dir: the name is "save" in current data directory
+    :param family_image_paths: the images path of family in pre-process directory
+    :param root_dir: the root direcotry of data
+    :param family_id:
+    :return:
+    """
     representations = []
     largest_area = 0
     domain_image_path = ""
@@ -94,6 +105,7 @@ def process_cluster(face_array, process_family_dir, emb_array, save_family_dir,
         np.save(os.path.join(save_family_dir, str(label)), represent_embedding)
 
         current_area = float(family_image_paths[represent_id].split("_")[-3])
+        # We guess the biggest face is main person in this family
         if current_area > largest_area:
             largest_area = current_area
             domain_id = represent_id
@@ -127,6 +139,13 @@ def calculate_cluster(strategy):
     pass
 
 def greed_cluster(embeddings, idx_array, threshold):
+    """
+    using the greed algorithm to calculate the cluster of face
+    :param embeddings: all embeddings of current family
+    :param idx_array:
+    :param threshold: the discrimination of same face
+    :return:
+    """
     face_array = []  # 保存分类信息
     while len(idx_array) > 0:
         index = idx_array[0]
