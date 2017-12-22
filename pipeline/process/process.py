@@ -10,11 +10,11 @@ import tensorflow as tf
 from tensorflow.python.platform import gfile
 
 import numpy as np
-import sklearn
 
 from scipy import misc
 from sklearn.mixture import GMM
 from sklearn.cluster import KMeans
+from sklearn.metrics import calinski_harabaz_score
 
 def main(args):
     root_dir = os.path.expanduser(args.data_dir)
@@ -38,7 +38,7 @@ def main(args):
         images_placeholder = tf.get_default_graph().get_tensor_by_name("input:0")
         phase_train_placeholder = tf.get_default_graph().get_tensor_by_name("phase_train:0")
         embeddings = tf.get_default_graph().get_tensor_by_name("embeddings:0")
-
+        prelogits = tf.get_default_graph().get_tensor_by_name("InceptionResnetV1/Bottleneck/BatchNorm/batchnorm/add_1:0")
 
         for family_id in os.listdir(pp_root_dir):
             preprocess_family_dir = os.path.join(pp_root_dir, family_id)
@@ -57,36 +57,44 @@ def main(args):
 
             nrof_images = len(family_image_paths)
 
-            idx_array = np.arange(nrof_images)  # 记录每张脸的index
-            emb_array = np.zeros((nrof_images, 128))  # 没张脸的向量信息
+            # idx_array = np.arange(nrof_images)  # 记录每张脸的index
+            emb_array = np.zeros((nrof_images, 128))  # embedding of each faces
+            prelogits_array = np.zeros((nrof_images, 128))
             nrof_batch = int(np.ceil(nrof_images / args.batch_size))
             for label in range(nrof_batch):
                 start_index = label * args.batch_size
                 end_index = min((label + 1) * args.batch_size, nrof_images)
                 images = load_data(family_image_paths[start_index: end_index], args.image_size)
-                emb_array[start_index: end_index, :] = session.run(embeddings, feed_dict={images_placeholder: images, phase_train_placeholder: False})
+                emb_array[start_index: end_index, :], prelogits_array[start_index: end_index] = \
+                    session.run([embeddings, prelogits],
+                                feed_dict={images_placeholder: images, phase_train_placeholder: False})
 
             print("finish calculation of current %s-th family face vectors" % family_id)
 
-            # maybe use the unsupervised learning to category face.
-            # TODO: Here, I use greedy algorithm, but I think this is a good strategy
-            face_array = greed_cluster(emb_array, idx_array, args.threshold)
+            print("clustering process...")
+            # clusters_ids, represent_embeddings, represent_ids = kmean_cluster(emb_array, args.max_num_cluster)
+            clusters_ids, represent_embeddings, represent_ids = greed_cluster(emb_array, args.threshold)
+            print("clustering the face and there are %d categories" % len(clusters_ids))
 
-            print("clustering the face and there are %d categories" % len(face_array))
+            print("dominate process...")
+            dominate_process(clusters_ids, represent_embeddings, represent_ids, family_image_paths, root_dir, family_id)
 
-            process_cluster(face_array, process_family_dir, emb_array, save_family_dir, family_image_paths, root_dir, family_id)
+            save_process(represent_embeddings, save_family_dir)
+
+            process_cluster(clusters_ids, process_family_dir, emb_array, save_family_dir,
+                            family_image_paths, root_dir, family_id)
             print("----------------------------------------\n")
 
 def process_cluster(face_array, process_family_dir, emb_array, save_family_dir,
                     family_image_paths, root_dir, family_id):
     """
     find the main face in current family and save the main face and this embedding vector
-    :param face_array:
+    :param face_array: clustered ids of face array
     :param process_family_dir: the name is "process" in current data directory
     :param emb_array: the embeddings of all family face
     :param save_family_dir: the name is "save" in current data directory
     :param family_image_paths: the images path of family in pre-process directory
-    :param root_dir: the root direcotry of data
+    :param root_dir: the root directory of data
     :param family_id:
     :return:
     """
@@ -100,26 +108,27 @@ def process_cluster(face_array, process_family_dir, emb_array, save_family_dir,
         label_dir = os.path.join(process_family_dir, str(label))
         os.mkdir(label_dir)
 
-        represent_embedding, represent_id = near_center(emb_array, face_ids)
-        representations.append(represent_embedding)
-        np.save(os.path.join(save_family_dir, str(label)), represent_embedding)
+        # represent_embedding, represent_id = near_center(emb_array, face_ids)
+        # representations.append(represent_embedding)
+        # np.save(os.path.join(save_family_dir, str(label)), represent_embedding)
 
-        current_area = float(family_image_paths[represent_id].split("_")[-3])
-        # We guess the biggest face is main person in this family
-        if current_area > largest_area:
-            largest_area = current_area
-            domain_id = represent_id
-            domain_image_path = family_image_paths[domain_id]
-            domain_represent_vector = represent_embedding
-            domain_label = label
+        # current_area = float(family_image_paths[represent_id].split("_")[-3])
+        # # We guess the biggest face is main person in this family
+        # # TODO: maybe the frequency of face is better measure for dominate face
+        # if current_area > largest_area:
+        #     largest_area = current_area
+        #     domain_id = represent_id
+        #     domain_image_path = family_image_paths[domain_id]
+        #     domain_represent_vector = represent_embedding
+        #     domain_label = label
 
         for j, face_index in enumerate(face_ids):
             image_name = family_image_paths[face_index].split("/")[-1]
             copyfile(family_image_paths[face_index], os.path.join(label_dir, image_name))
 
-    save_domain_info(root_dir, domain_image_path, family_id, domain_represent_vector, domain_label)
-    print("save the domain information, current family id : %s, domain_label : %s" %
-          (str(family_id), str(domain_label)))
+    # save_domain_info(root_dir, domain_image_path, family_id, domain_represent_vector, domain_label)
+    # print("save the domain information, current family id : %s, domain_label : %s" %
+    #       (str(family_id), str(domain_label)))
 
 def save_domain_info(root_dir, image_path, family_id, represent_vector, label):
     domain_root_dir = os.path.join(root_dir, "domain")
@@ -138,25 +147,83 @@ def save_domain_info(root_dir, image_path, family_id, represent_vector, label):
 def calculate_cluster(strategy):
     pass
 
-def greed_cluster(embeddings, idx_array, threshold):
+def save_process(represent_embeddings, save_family_dir):
+    """
+    :param represent_embeddings: each embedding represents the corresponding cluster
+    :return:
+    """
+    for label, represent_embedding in enumerate(represent_embeddings):
+        np.save(os.path.join(save_family_dir, str(label)), represent_embedding)
+
+def dominate_process(clusters_ids, represent_embeddings, represent_ids, family_images_path, root_dir, family_id):
+    """
+
+    :param clusters_ids:
+    :param represent_embeddings:
+    :param represent_ids:
+    :param family_images_path:
+    :param root_dir:
+    :param family_id:
+    :return:
+    """
+    num_sample_cluster = [len(clusters_id) for clusters_id in clusters_ids]
+    dominate_cluster_label = np.argmax(num_sample_cluster)
+    dominate_embedding = represent_embeddings[dominate_cluster_label]
+    dominate_image_id = represent_ids[dominate_cluster_label]
+    dominate_image_path = family_images_path[dominate_image_id]
+    save_domain_info(root_dir, dominate_image_path, family_id, dominate_embedding, dominate_cluster_label)
+
+def kmean_cluster(embeddings, max_num_cluster):
+    best_ch_score = -1
+    best_kmean = None
+    clusters_ids = []
+    represent_embeddings = []
+    represent_ids = []
+    for num_cluster in range(2, max_num_cluster):
+        kmean = KMeans(n_clusters=num_cluster).fit(embeddings)
+        ch_score = calinski_harabaz_score(embeddings, kmean.labels_)
+        if best_ch_score < ch_score or best_kmean is None:
+            best_kmean = kmean
+            best_ch_score = ch_score
+
+    for label in np.unique(best_kmean.labels_):
+        ids = np.where(best_kmean.labels_ == label)[0]
+        represent_embedding, represent_id = near_center(embeddings, ids, center=best_kmean.cluster_centers_[label])
+
+        clusters_ids.append(ids)
+        represent_embeddings.append(represent_embedding)
+        represent_ids.append(represent_id)
+
+    return clusters_ids, represent_embeddings, represent_ids
+
+def greed_cluster(embeddings, threshold):
     """
     using the greed algorithm to calculate the cluster of face
     :param embeddings: all embeddings of current family
-    :param idx_array:
     :param threshold: the discrimination of same face
     :return:
     """
-    face_array = []  # 保存分类信息
+    clusters_ids = []  # 保存分类信息
+    represent_ids = []
+    represent_embeddings = []
+    idx_array = np.arange(embeddings.shape[0])
     while len(idx_array) > 0:
         index = idx_array[0]
         base_emb = embeddings[index]
         dist = np.sum(np.square(np.subtract(base_emb, embeddings[idx_array, :])), 1)
         idx = np.where(dist < threshold)[0].tolist()
-        face_array.append(idx_array[idx])
+        clusters_ids.append(idx_array[idx])
         idx_array = np.delete(idx_array, idx)
-    return face_array
 
-def near_center(embeddings, face_ids):
+    for cluster_ids in clusters_ids:
+        represent_embedding, represent_id = near_center(embeddings, cluster_ids)
+
+        represent_ids.append(represent_id)
+        represent_embeddings.append(represent_embedding)
+
+    return clusters_ids, represent_embeddings, represent_ids
+
+def near_center(embeddings, face_ids, center=None):
     """
     which embedding is near the center of cluster and the id of this embedding
     :param embeddings: All the embeddings in family
@@ -164,7 +231,8 @@ def near_center(embeddings, face_ids):
     :return:
     """
     cluster_embeddings = embeddings[face_ids]
-    center = np.mean(cluster_embeddings)
+    if center == None:
+        center = np.mean(cluster_embeddings)
     diff = np.subtract(cluster_embeddings, center)
     dist = np.sum(np.square(diff), 1)
     main_id = np.argmin(dist)
@@ -230,7 +298,9 @@ def parse_arguments(argv):
     parser.add_argument("data_dir", type=str, help="the directory of data set")
     parser.add_argument("--image_size", type=int, help="the size of image when using the cnn", default=160)
     parser.add_argument("--batch_size", type=int, help="the enqueue batch size", default=3)
-    parser.add_argument("--threshold", type=float, help="Use to classify the different and the same face", default=0.11)
+    parser.add_argument("--threshold", type=float, help="Use to classify the different and the same face", default=0.9)
+    parser.add_argument("--max_num_cluster", type=int, help="each family has the max number of people "
+                                                            "(number of clusters)", default=10)
 
     return parser.parse_args(argv)
 
