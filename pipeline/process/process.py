@@ -12,19 +12,18 @@ from tensorflow.python.platform import gfile
 import numpy as np
 
 from scipy import misc
-from sklearn.mixture import GMM
 from sklearn.cluster import KMeans
 from sklearn.metrics import calinski_harabaz_score
 
 def main(args):
     root_dir = os.path.expanduser(args.data_dir)
     model_dir = os.path.expanduser(args.model_dir)
-    pp_root_dir = os.path.join(root_dir, "preprocess")
-    p_root_dir = os.path.join(root_dir, "process")
-    save_dir = os.path.join(root_dir, "save")
+    preprocess_root_dir = os.path.join(root_dir, "preprocess")
+    process_root_dir = os.path.join(root_dir, args.process_subdir)
+    save_dir = os.path.join(root_dir, args.save_subdir)
 
-    if not os.path.isdir(p_root_dir):
-        os.mkdir(p_root_dir)
+    if not os.path.isdir(process_root_dir):
+        os.mkdir(process_root_dir)
 
     if not os.path.isdir(save_dir):
         os.mkdir(save_dir)
@@ -40,9 +39,9 @@ def main(args):
         embeddings = tf.get_default_graph().get_tensor_by_name("embeddings:0")
         prelogits = tf.get_default_graph().get_tensor_by_name("InceptionResnetV1/Bottleneck/BatchNorm/batchnorm/add_1:0")
 
-        for family_id in os.listdir(pp_root_dir):
-            preprocess_family_dir = os.path.join(pp_root_dir, family_id)
-            process_family_dir = os.path.join(p_root_dir, family_id)
+        for family_id in os.listdir(preprocess_root_dir):
+            preprocess_family_dir = os.path.join(preprocess_root_dir, family_id)
+            process_family_dir = os.path.join(process_root_dir, family_id)
             save_family_dir = os.path.join(save_dir, family_id)
             if not os.path.exists(save_family_dir):
                 os.makedirs(save_family_dir)
@@ -79,7 +78,7 @@ def main(args):
             print("dominate process...")
             dominate_process(clusters_ids, represent_embeddings, represent_ids, family_image_paths, root_dir, family_id)
 
-            save_process(represent_embeddings, save_family_dir)
+            save_process(represent_embeddings, represent_ids, family_image_paths,save_family_dir)
 
             process_cluster(clusters_ids, process_family_dir, emb_array, save_family_dir,
                             family_image_paths, root_dir, family_id)
@@ -147,13 +146,22 @@ def save_domain_info(root_dir, image_path, family_id, represent_vector, label):
 def calculate_cluster(strategy):
     pass
 
-def save_process(represent_embeddings, save_family_dir):
+def save_process(represent_embeddings, represent_ids, family_images_path, save_family_dir):
     """
     :param represent_embeddings: each embedding represents the corresponding cluster
+    :param represent_ids:
+    :param family_images_path:
+    :param save_family_dir:
     :return:
     """
-    for label, represent_embedding in enumerate(represent_embeddings):
-        np.save(os.path.join(save_family_dir, str(label)), represent_embedding)
+    for label, (represent_embedding, represent_id) in enumerate(zip(represent_embeddings, represent_ids)):
+        label_path = os.path.join(save_family_dir, str(label))
+        if not os.path.isdir(label_path):
+            os.mkdir(label_path)
+        np.save(os.path.join(label_path, "embedding"), represent_embedding)
+        image_path = family_images_path[represent_id]
+        image_name = image_path.split("/")[-1]
+        copyfile(image_path, os.path.join(save_family_dir, str(label), image_name))
 
 def dominate_process(clusters_ids, represent_embeddings, represent_ids, family_images_path, root_dir, family_id):
     """
@@ -296,6 +304,8 @@ def parse_arguments(argv):
 
     parser.add_argument("model_dir", type=str, help="the directory of facenet cnn model")
     parser.add_argument("data_dir", type=str, help="the directory of data set")
+    parser.add_argument("--process_subdir", type=str, help="The sub-directory of process", default="process")
+    parser.add_argument("--save_subdir", type=str, help="The sub-directory of save", default="save")
     parser.add_argument("--image_size", type=int, help="the size of image when using the cnn", default=160)
     parser.add_argument("--batch_size", type=int, help="the enqueue batch size", default=3)
     parser.add_argument("--threshold", type=float, help="Use to classify the different and the same face", default=0.9)
