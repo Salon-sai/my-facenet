@@ -37,6 +37,14 @@ class Face(object):
     def embedding(self, embedding):
         self._embedding = embedding
 
+    @image_path.setter
+    def image_path(self, from_image_path):
+        self._from_image_path = from_image_path
+
+    @aligned_image.setter
+    def aligned_image(self, aligned_image):
+        self._image = aligned_image
+
 def detect_faces(img_info, minsize, mtccn_threshold, factor, margin, face_size, multi_detect=False):
     faces = []
     remove_ids = []
