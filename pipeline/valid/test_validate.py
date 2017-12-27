@@ -121,6 +121,9 @@ def main(args):
     print("Best Accuracy of classification in same family or not %1.3f" % accuracies.max())
     print("Classify family members in same family %1.3f+-%1.3f" % (classify_acc.mean(), classify_acc.std()))
     print("Best Accuracy of classification family members in same family %1.3f" % classify_acc.max())
+    print("Number of faces: %d, Number of classify images %d, Number of other images in all family %d " %
+          (nrof_faces, (success_classify_in_family + fail_classify_in_family),
+           nrof_faces - (success_classify_in_family + fail_classify_in_family)))
 
     plt.plot(thresholds, accuracies, color="r", label="Classify in same family or not")
     plt.plot(thresholds, classify_acc, '--', color="b", label="Classify family members in same family")

@@ -224,7 +224,9 @@ def greed_cluster(embeddings, threshold):
         idx_array = np.delete(idx_array, idx)
 
     for cluster_ids in clusters_ids:
-        represent_embedding, represent_id = near_center(embeddings, cluster_ids)
+        represent_id = cluster_ids[0]
+        represent_embedding = embeddings[represent_id]
+        # represent_embedding, represent_id = near_center(embeddings, cluster_ids)
 
         represent_ids.append(represent_id)
         represent_embeddings.append(represent_embedding)
