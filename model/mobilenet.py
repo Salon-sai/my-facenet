@@ -50,7 +50,7 @@ def mobile_net(inputs,
 
         pointwise_conv = slim.convolution2d(inputs=bn,
                                             num_outputs=num_pwc_filters,
-                                            kernel_size=[3, 3],
+                                            kernel_size=[1, 1],
                                             stride=1,
                                             padding="SAME",
                                             scope=sc + "/pointwise_conv")
@@ -69,6 +69,10 @@ def mobile_net(inputs,
             with slim.arg_scope([slim.batch_norm],
                                 is_training=is_training,
                                 activation_fn=tf.nn.relu,
+                                decay=0.995,
+                                epsilon=0.001,
+                                updates_collections=None,
+                                variables_collections=[tf.GraphKeys.TRAINABLE_VARIABLES],
                                 fused=True):
                 net = slim.convolution2d(inputs, num_outputs=32, kernel_size=[3, 3], stride=2, padding='SAME', scope="conv_1")
                 net = _depthwise_separable_conv(net, num_pwc_filters=64, width_multiplier=width_multiplier, sc="conv_dp_2")
