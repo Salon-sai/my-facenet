@@ -7,6 +7,7 @@ import os
 import numpy as np
 import matplotlib.pyplot as plt
 
+from sklearn import metrics
 from scipy import misc
 from pipeline.preprocess import utils
 from pipeline.valid.face import detect_faces, Face, calculate_embeddings
@@ -77,7 +78,7 @@ def main(args):
     represent_embeddings = []
     calculate_embeddings(label_faces, args.facenet_model_dir, args.batch_size)
     thresholds = np.arange(0, args.max_threshold, 0.1)
-    accuracies = np.zeros((len(thresholds)))    # whether the person in this family
+    acc_in_family = np.zeros((len(thresholds)))    # whether the person in this family
     classify_acc = np.zeros((len(thresholds)))
 
     for index, threshold in enumerate(thresholds):
@@ -113,19 +114,19 @@ def main(args):
                     success_classify_in_family += predict_label == label_face.label
                     fail_classify_in_family += predict_label != label_face.label
 
-        accuracies[index] = float(tp + tn) / float(nrof_faces)
+        acc_in_family[index] = float(tp + tn) / float(nrof_faces)
         classify_acc[index] = float(success_classify_in_family) / float(success_classify_in_family +
                                                                         fail_classify_in_family)
 
-    print("Classify in same family or not, Accuracy: %1.3f+-%1.3f" % (accuracies.mean(), accuracies.std()))
-    print("Best Accuracy of classification in same family or not %1.3f" % accuracies.max())
+    print("Classify in same family or not, Accuracy: %1.3f+-%1.3f" % (acc_in_family.mean(), acc_in_family.std()))
+    print("Best Accuracy of classification in same family or not %1.3f" % acc_in_family.max())
     print("Classify family members in same family %1.3f+-%1.3f" % (classify_acc.mean(), classify_acc.std()))
     print("Best Accuracy of classification family members in same family %1.3f" % classify_acc.max())
     print("Number of faces: %d, Number of classify images %d, Number of other images in all family %d " %
           (nrof_faces, (success_classify_in_family + fail_classify_in_family),
            nrof_faces - (success_classify_in_family + fail_classify_in_family)))
 
-    plt.plot(thresholds, accuracies, color="r", label="Classify in same family or not")
+    plt.plot(thresholds, acc_in_family, color="r", label="Predict in same family or not")
     plt.plot(thresholds, classify_acc, '--', color="b", label="Classify family members in same family")
 
     plt.ylabel("Accuracy")

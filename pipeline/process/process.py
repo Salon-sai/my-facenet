@@ -220,7 +220,8 @@ def greed_cluster(embeddings, threshold):
         base_emb = embeddings[index]
         dist = np.sum(np.square(np.subtract(base_emb, embeddings[idx_array, :])), 1)
         idx = np.where(dist < threshold)[0].tolist()
-        clusters_ids.append(idx_array[idx])
+        if len(idx) >= 2:
+            clusters_ids.append(idx_array[idx])
         idx_array = np.delete(idx_array, idx)
 
     for cluster_ids in clusters_ids:
