@@ -132,7 +132,8 @@ def main(args):
         prelogits = network.inference(images=image_batch,
                                       phase_train=phase_train_placeholder,
                                       bottleneck_layer_size=args.embedding_size,
-                                      keep_probability=0.5,
+                                      keep_probability=args.keep_probability,
+                                      weight_decay=args.weight_decay,
                                       width_multiplier=args.width_multiplier)
         # 对prelogits进行L2正则化
         embeddings = tf.nn.l2_normalize(x=prelogits, dim=1, epsilon=1e-10, name='embeddings')
@@ -420,6 +421,8 @@ def parse_arguments(argv):
     parser.add_argument("--logs_base_dir", type=str, help='Directory where to write event logs.', default='logs/')
     parser.add_argument("--lfw_dir", type=str, help="lfw database directory", default="~/data/lfw")
     parser.add_argument("--models_base_dir", type=str, help='Directory where to write trained models and checkpoints', default='models/')
+    parser.add_argument("--keep_probability", type=float, help="Keep probability of dropout for the fully connected layers(s).", default=1.0)
+    parser.add_argument("--weight_decay", type=float, help="L2 weight regularization", default=0.0)
     parser.add_argument("--image_size", type=int, help="Image size (height, width) in a pixels.", default=224)
     parser.add_argument("--random_flip", help="random horizontal flipping of training images.", action="store_true")
     parser.add_argument("--batch_size", type=int, help="Number of images to process in a batch.", default=90)

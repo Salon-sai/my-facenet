@@ -4,20 +4,25 @@
 import tensorflow as tf
 import tensorflow.contrib.slim as slim
 
-def inference(images, phase_train, bottleneck_layer_size, reuse=None, **kwargs):
+def inference(images, keep_probability, phase_train=True,
+              bottleneck_layer_size=128, weight_decay=0.0, reuse=None, **kwargs):
     with slim.arg_scope([slim.convolution2d, slim.fully_connected, slim.separable_convolution2d],
-                        weights_initializer=tf.truncated_normal_initializer(stddev=0.1)):
+                        weights_initializer=tf.truncated_normal_initializer(stddev=0.1),
+                        biases_initializer=slim.init_ops.zeros_initializer(),
+                        weights_regularizer=slim.l2_regularizer(weight_decay)):
         return mobile_net(inputs=images,
-                          width_multiplier=kwargs['width_multiplier'],
+                          width_multiplier=kwargs.get("width_multiplier", 1),
                           is_training=phase_train,
                           bottleneck_layer_size=bottleneck_layer_size,
-                          reuse=reuse,)
+                          keep_probability=keep_probability,
+                          reuse=reuse)
 
 def mobile_net(inputs,
                width_multiplier=1,
                is_training=True,
                bottleneck_layer_size=128,
                reuse=None,
+               keep_probability=0.8,
                scope="MobileNet"):
 
     def _depthwise_separable_conv(inputs,
@@ -91,12 +96,19 @@ def mobile_net(inputs,
                 net = _depthwise_separable_conv(net, num_pwc_filters=1024, width_multiplier=width_multiplier, downsample=True, sc="conv_dp_13")
                 net = _depthwise_separable_conv(net, num_pwc_filters=1024, width_multiplier=width_multiplier, sc="conv_dp_14")
 
-                net = slim.avg_pool2d(net, kernel_size=[7, 7], scope="avg_pool_15")
+                end_points = slim.utils.convert_collection_to_dict(end_points_collection)
 
-        # end_points = dict(tf.get_collection(end_points_collection))
-        net = tf.squeeze(net, [1, 2], name="SpatialSqueeze")
-        # end_points['squeeze'] = net
+                with tf.variable_scope("Logits"):
+                    end_points['PrePool'] = net
 
-        net = slim.fully_connected(net, bottleneck_layer_size, activation_fn=None, scope="Bottleneck", reuse=False)
+                    net = slim.avg_pool2d(net, kernel_size=[7, 7], scope="avg_pool_15")
+
+                    net = tf.squeeze(net, [1, 2], name="SpatialSqueeze")
+                    end_points['squeeze'] = net
+
+                    net = slim.dropout(net, keep_prob=keep_probability, is_training=is_training, scope="Dropout")
+                    end_points["PreLogitsFlatten"] = net
+
+                    net = slim.fully_connected(net, bottleneck_layer_size, activation_fn=None, scope="Bottleneck", reuse=False)
 
     return net
