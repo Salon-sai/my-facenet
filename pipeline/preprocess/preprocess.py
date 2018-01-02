@@ -1,14 +1,15 @@
 # -*- coding: utf-8 -*-
 
 import argparse
-import sys
 import os
+import sys
 
-from scipy import misc
-import tensorflow as tf
 import numpy as np
+import tensorflow as tf
+from scipy import misc
 
-import pipeline.preprocess.align.detect_face as detect_face
+import align.detect_face as detect_face
+
 
 def main(args):
     nrof_images_total = 0

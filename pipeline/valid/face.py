@@ -3,12 +3,13 @@
 import os
 import time
 
-import tensorflow as tf
 import numpy as np
-
+import tensorflow as tf
 from scipy import misc
-from pipeline.preprocess.align import detect_face
+
+from align import detect_face
 from pipeline.process import process
+
 
 class Face(object):
 

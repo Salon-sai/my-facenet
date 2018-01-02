@@ -1,22 +1,18 @@
 # -*- coding: utf-8 -*-
 
-import sys
-import os
 import argparse
+import os
+import sys
 
+import matplotlib.pyplot as plt
 import numpy as np
 import tensorflow as tf
-
-from shutil import copyfile
 from scipy import misc
+from sklearn import metrics
 
 import pipeline.valid.face as face_module
-import matplotlib.pyplot as plt
+from align import detect_face
 
-from pipeline.preprocess.align import detect_face
-
-from sklearn import metrics
-from sklearn.preprocessing import normalize, MinMaxScaler
 
 class SampleFace(face_module.Face):
     def __init__(self, face, family_domain_vector, is_domain):

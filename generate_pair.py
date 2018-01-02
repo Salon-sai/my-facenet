@@ -1,15 +1,15 @@
 # -*- coding: utf-8 -*-
 
-import sys
-import os
 import argparse
+import os
+import sys
 
+import numpy as np
+import tensorflow as tf
 from scipy import misc
 
-import tensorflow as tf
-import numpy as np
+import align.detect_face as detect_face
 
-import pipeline.preprocess.align.detect_face as detect_face
 
 def main(args):
     raw_data_path = os.path.expanduser(args.raw_data_path)
