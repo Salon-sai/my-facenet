@@ -21,10 +21,11 @@ def gender_model(embeddings):
         with slim.arg_scope([slim.fully_connected],
                             weights_initializer=tf.random_normal_initializer(),
                             biases_initializer=tf.constant_initializer(),
+                            activation_fn=None,
                             weights_regularizer=slim.l2_regularizer(scale=0.5)):
-            net = slim.fully_connected(embeddings, num_outputs=1024, scope="hidden_1")
-            net = slim.fully_connected(net, num_outputs=2048, scope="hidden_2")
-            net = slim.fully_connected(net, num_outputs=4096, scope="hidden_3")
+            net = slim.fully_connected(embeddings, num_outputs=64, scope="hidden_1")
+            net = slim.fully_connected(net, num_outputs=16, scope="hidden_2")
+            net = slim.fully_connected(net, num_outputs=4, scope="hidden_3")
             net = slim.fully_connected(net, num_outputs=2, activation_fn=None, scope="logits")
     return net
 
@@ -109,7 +110,7 @@ def train_gender(image_database, embedding_size, optimizer_type, max_num_epoch, 
                                    learning_rate=learning_rate,
                                    moving_average_decay=0.99,
                                    update_gradient_vars=update_vars,
-                                   log_historgrams=False)
+                                   log_historgrams=True)
 
         saver = tf.train.Saver(update_vars, max_to_keep=3)
 
