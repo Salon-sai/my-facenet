@@ -22,9 +22,9 @@ def gender_model(embeddings):
                             weights_initializer=tf.random_normal_initializer(),
                             biases_initializer=tf.constant_initializer(),
                             weights_regularizer=slim.l2_regularizer(scale=0.5)):
-            net = slim.fully_connected(embeddings, num_outputs=1024, scope="hidden")
-            net = slim.fully_connected(net, num_outputs=2048, scope="hidden")
-            net = slim.fully_connected(net, num_outputs=4096, scope="hidden")
+            net = slim.fully_connected(embeddings, num_outputs=1024, scope="hidden_1")
+            net = slim.fully_connected(net, num_outputs=2048, scope="hidden_2")
+            net = slim.fully_connected(net, num_outputs=4096, scope="hidden_3")
             net = slim.fully_connected(net, num_outputs=2, activation_fn=None, scope="logits")
     return net
 
