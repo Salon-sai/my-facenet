@@ -77,7 +77,6 @@ def train_gender(image_database, embedding_size, optimizer_type, max_num_epoch, 
         labels_placeholder = tf.placeholder(dtype=tf.int64, shape=[None], name="gender_label")
         embeddings_placeholder = tf.placeholder(dtype=tf.float32, shape=[None, embedding_size],
                                                 name="embeddings_placeholder")
-        learning_rate_placeholder = tf.placeholder(dtype=tf.float32, name="learning_rate")
 
         global_step = tf.Variable(0, trainable=False)
 
@@ -99,7 +98,7 @@ def train_gender(image_database, embedding_size, optimizer_type, max_num_epoch, 
 
         update_vars = tf.get_collection(tf.GraphKeys.GLOBAL_VARIABLES, "gender_model")
 
-        learning_rate = tf.train.exponential_decay(learning_rate_placeholder, global_step, learning_rate_decay_step,
+        learning_rate = tf.train.exponential_decay(init_learning_rate, global_step, learning_rate_decay_step,
                                                    learning_rate_decay_factor, True)
         tf.summary.scalar("learning_rate", learning_rate)
 
@@ -123,7 +122,6 @@ def train_gender(image_database, embedding_size, optimizer_type, max_num_epoch, 
 
         epoch = 0
         nrof_batch = int(np.ceil(nrof_train_samples / batch_size))
-        lr = init_learning_rate
         while epoch < max_num_epoch:
             for i in range(nrof_batch):
                 start_index = i * batch_size
@@ -131,7 +129,6 @@ def train_gender(image_database, embedding_size, optimizer_type, max_num_epoch, 
                 feed_dict = {
                     labels_placeholder: train_genders[start_index: end_index],
                     embeddings_placeholder: train_embeddings[start_index: end_index],
-                    learning_rate_placeholder: lr
                 }
                 batch_loss, _, gs, summary, lr = \
                     session.run([total_losses, train_op, global_step, summary_op, learning_rate],
