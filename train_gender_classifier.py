@@ -23,6 +23,8 @@ def gender_model(embeddings):
                             biases_initializer=tf.constant_initializer(),
                             weights_regularizer=slim.l2_regularizer(scale=0.5)):
             net = slim.fully_connected(embeddings, num_outputs=1024, scope="hidden")
+            net = slim.fully_connected(net, num_outputs=2048, scope="hidden")
+            net = slim.fully_connected(net, num_outputs=4096, scope="hidden")
             net = slim.fully_connected(net, num_outputs=2, activation_fn=None, scope="logits")
     return net
 
@@ -94,7 +96,6 @@ def train_gender(image_database, embedding_size, optimizer_type, max_num_epoch, 
 
         regularization_losses = tf.get_collection(tf.GraphKeys.REGULARIZATION_LOSSES)
         total_losses = tf.add_n([cross_entropy_mean] + regularization_losses)
-        tf.summary.scalar("loss", cross_entropy_mean)
 
         update_vars = tf.get_collection(tf.GraphKeys.GLOBAL_VARIABLES, "gender_model")
 
@@ -134,6 +135,9 @@ def train_gender(image_database, embedding_size, optimizer_type, max_num_epoch, 
                     session.run([total_losses, train_op, global_step, summary_op, learning_rate],
                                                          feed_dict=feed_dict)
                 summary_writer.add_summary(summary, gs)
+                temp_summary = tf.Summary()
+                temp_summary.value.add(tag="batch_loss", simple_value=batch_loss)
+                summary_writer.add_summary(temp_summary, gs)
                 print("[%3d/%6d] Batch Loss: %1.4f, Learning rate: %1.4f" % (epoch, gs, batch_loss, lr))
             epoch += 1
             # evaluate
