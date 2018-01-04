@@ -1,16 +1,16 @@
 # -*- coding: utf-8 -*-
 
 import argparse
-import sys
 import os
+import sys
 
-import numpy as np
 import matplotlib.pyplot as plt
-
-from sklearn import metrics
+import numpy as np
 from scipy import misc
-from pipeline.preprocess import utils
+
+from data_process import utils
 from pipeline.valid.face import detect_faces, Face, calculate_embeddings
+
 
 class LabelFace(Face):
 
