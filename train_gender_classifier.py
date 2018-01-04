@@ -64,14 +64,17 @@ def main(args):
 def train_gender(image_database, embedding_size, optimizer_type, max_num_epoch, batch_size, log_dir,
                  learning_rate_decay_step, learning_rate_decay_factor, init_learning_rate):
     _, train_embeddings, _, train_genders = image_database.train_data
-    _, valid_embeddings, _, valid_genders = image_database.valid_data
+    valid_images_path, valid_embeddings, _, valid_genders = image_database.valid_data
     nrof_train_samples = len(train_embeddings)
 
-    print("The number of female: %d" % np.sum(train_genders == 0))
-    print("The number of male: %d" % np.sum(train_genders == 1))
+    print("The training number of female: %d" % np.sum(train_genders == 0))
+    print("The training number of male: %d" % np.sum(train_genders == 1))
+
+    print("The training number of female: %d" % np.sum(valid_genders == 0))
+    print("The training number of male: %d" % np.sum(valid_genders == 1))
 
     with tf.Graph().as_default() as graph:
-        labels_placeholder = tf.placeholder(dtype=tf.int32, shape=[None], name="gender_label")
+        labels_placeholder = tf.placeholder(dtype=tf.int64, shape=[None], name="gender_label")
         embeddings_placeholder = tf.placeholder(dtype=tf.float32, shape=[None, embedding_size],
                                                 name="embeddings_placeholder")
         learning_rate_placeholder = tf.placeholder(dtype=tf.float32, name="learning_rate")
@@ -80,7 +83,7 @@ def train_gender(image_database, embedding_size, optimizer_type, max_num_epoch, 
 
         logits = gender_model(embeddings_placeholder)
 
-        correct = tf.equal(tf.argmax(logits, 1), tf.argmax(labels_placeholder))
+        correct = tf.equal(tf.argmax(logits, 1), labels_placeholder)
 
         accuracy = tf.reduce_mean(tf.cast(correct, "float"))
         tf.summary.scalar("accuracy", accuracy)
@@ -92,18 +95,17 @@ def train_gender(image_database, embedding_size, optimizer_type, max_num_epoch, 
 
         regularization_losses = tf.get_collection(tf.GraphKeys.REGULARIZATION_LOSSES)
         total_losses = tf.add_n([cross_entropy_mean] + regularization_losses)
-        tf.summary.scalar("loss", total_losses)
+        tf.summary.scalar("loss", cross_entropy_mean)
 
         update_vars = tf.get_collection(tf.GraphKeys.GLOBAL_VARIABLES, "gender_model")
 
         learning_rate = tf.train.exponential_decay(learning_rate_placeholder, global_step, learning_rate_decay_step,
-                                                   learning_rate_decay_factor)
+                                                   learning_rate_decay_factor, True)
         tf.summary.scalar("learning_rate", learning_rate)
 
         train_op = optimizer.train(total_loss=total_losses,
                                    global_step=global_step,
                                    optimizer=optimizer_type,
-                                   # optimizer=args.optimizer,
                                    learning_rate=learning_rate,
                                    moving_average_decay=0.99,
                                    update_gradient_vars=update_vars,
@@ -166,7 +168,7 @@ def parse_arguments(argv):
     parser.add_argument("--learning_rate", type=float, help="training learning rate", default=0.1)
     parser.add_argument("--learning_rate_decay_step", type=int,
                         help="Number of global step between learning rate decay.", default=10000)
-    parser.add_argument('--learning_rate_decay_factor', type=float, help='Learning rate decay factor.', default=1.0)
+    parser.add_argument('--learning_rate_decay_factor', type=float, help='Learning rate decay factor.', default=0.9)
     parser.add_argument("--logs_base_dir", type=str, help='Directory where to write event logs.', default='logs/')
     parser.add_argument("--models_base_dir", type=str, help="Direcotry where to save the parameters of model",
                         default="models/")
