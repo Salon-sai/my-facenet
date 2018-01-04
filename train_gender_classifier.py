@@ -58,11 +58,11 @@ def main(args):
 
     image_database.embeddings = emb_array
     train_gender(image_database, embedding_size, args.optimizer, args.epoch_size, batch_size, log_dir,
-                 args.learning_rate_decay_step, args.learning_rate_decay_factor)
+                 args.learning_rate_decay_step, args.learning_rate_decay_factor, args.learning_rate)
 
 
 def train_gender(image_database, embedding_size, optimizer_type, max_num_epoch, batch_size, log_dir,
-                 learning_rate_decay_step, learning_rate_decay_factor):
+                 learning_rate_decay_step, learning_rate_decay_factor, init_learning_rate):
     _, train_embeddings, _, train_genders = image_database.train_data
     _, valid_embeddings, _, valid_genders = image_database.valid_data
     nrof_train_samples = len(train_embeddings)
@@ -98,14 +98,16 @@ def train_gender(image_database, embedding_size, optimizer_type, max_num_epoch, 
 
         learning_rate = tf.train.exponential_decay(learning_rate_placeholder, global_step, learning_rate_decay_step,
                                                    learning_rate_decay_factor)
+        tf.summary.scalar("learning_rate", learning_rate)
 
         train_op = optimizer.train(total_loss=total_losses,
                                    global_step=global_step,
                                    optimizer=optimizer_type,
                                    # optimizer=args.optimizer,
-                                   learning_rate=0.5,
+                                   learning_rate=learning_rate,
                                    moving_average_decay=0.99,
-                                   update_gradient_vars=update_vars)
+                                   update_gradient_vars=update_vars,
+                                   log_historgrams=False)
 
         saver = tf.train.Saver(update_vars, max_to_keep=3)
 
@@ -119,6 +121,7 @@ def train_gender(image_database, embedding_size, optimizer_type, max_num_epoch, 
 
         epoch = 0
         nrof_batch = int(np.ceil(nrof_train_samples / batch_size))
+        lr = init_learning_rate
         while epoch < max_num_epoch:
             for i in range(nrof_batch):
                 start_index = i * batch_size
@@ -126,12 +129,13 @@ def train_gender(image_database, embedding_size, optimizer_type, max_num_epoch, 
                 feed_dict = {
                     labels_placeholder: train_genders[start_index: end_index],
                     embeddings_placeholder: train_embeddings[start_index: end_index],
+                    learning_rate_placeholder: lr
                 }
-                batch_loss, _, gs, summary = session.run([total_losses, train_op, global_step, summary_op],
+                batch_loss, _, gs, summary, lr = \
+                    session.run([total_losses, train_op, global_step, summary_op, learning_rate],
                                                          feed_dict=feed_dict)
-
                 summary_writer.add_summary(summary, gs)
-                print("[%3d/%6d] Batch Loss: %1.4f" % (epoch, gs, batch_loss))
+                print("[%3d/%6d] Batch Loss: %1.4f, Learning rate: %1.4f" % (epoch, gs, batch_loss, lr))
             epoch += 1
             # evaluate
             acc = session.run(accuracy, feed_dict={
@@ -159,6 +163,7 @@ def parse_arguments(argv):
                         default=10000)
     parser.add_argument('--optimizer', type=str, choices=['ADAGRAD', 'ADADELTA', 'ADAM', 'RMSPROP', 'MOM'],
                         help='The optimization algorithm to use', default='ADAM')
+    parser.add_argument("--learning_rate", type=float, help="training learning rate", default=0.1)
     parser.add_argument("--learning_rate_decay_step", type=int,
                         help="Number of global step between learning rate decay.", default=10000)
     parser.add_argument('--learning_rate_decay_factor', type=float, help='Learning rate decay factor.', default=1.0)
