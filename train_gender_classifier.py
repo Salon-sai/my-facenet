@@ -19,13 +19,15 @@ from data_process.imdb_process import ImageDatabase
 def gender_model(embeddings, weight_decay1):
     with tf.variable_scope("gender_model"):
         with slim.arg_scope([slim.fully_connected],
-                            weights_initializer=tf.random_normal_initializer(),
+                            weights_initializer=tf.truncated_normal_initializer(stddev=0.1),
                             biases_initializer=tf.constant_initializer(),
                             activation_fn=None,
                             weights_regularizer=slim.l1_regularizer(weight_decay1)):
             net = slim.fully_connected(embeddings, num_outputs=64, scope="hidden_1")
-            net = slim.fully_connected(net, num_outputs=16, scope="hidden_2")
-            net = slim.fully_connected(net, num_outputs=4, scope="hidden_3")
+            net = slim.fully_connected(net, num_outputs=32, scope="hidden_2")
+            net = slim.fully_connected(net, num_outputs=16, scope="hidden_3")
+            net = slim.fully_connected(net, num_outputs=8, scope="hidden_4")
+            net = slim.fully_connected(net, num_outputs=4, scope="hidden_5")
             net = slim.fully_connected(net, num_outputs=2, activation_fn=None, scope="logits")
     return net
 
