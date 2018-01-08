@@ -100,7 +100,9 @@ def main(args):
 
         correct = tf.equal(tf.argmax(logits, 1), labels_placeholder)
 
-        accuracy_tensor = tf.reduce_mean(tf.cast(correct, "float"))
+        correct_sum = tf.reduce_sum(tf.cast(correct, "float"))
+
+        # accuracy_tensor = tf.reduce_mean(tf.cast(correct, "float"))
 
         cross_entropy = tf.nn.sparse_softmax_cross_entropy_with_logits(labels=labels_placeholder, logits=logits,
                                                                        name="softmax_cross_entropy")
@@ -146,7 +148,7 @@ def main(args):
 
             print("evaluating...")
             evaluate(session, valid_embeddings, valid_genders, embeddings_placeholder, labels_placeholder,
-                     phase_train_placeholder, gs, epoch, accuracy_tensor, summary_writer)
+                     phase_train_placeholder, gs, epoch, correct_sum, summary_writer)
 
         session.close()
 
@@ -183,21 +185,37 @@ def train(session, train_embeddings, train_genders, embeddings_placeholder, labe
     summary_writer.add_summary(epoch_summary, gs)
 
 def evaluate(session, valid_embeddings, valid_genders, embeddings_placeholder, labels_placeholder,
-             phase_train_placeholder, global_step, epoch, accuracy_tensor, summary_writer):
+             phase_train_placeholder, global_step, epoch, correct_sum, summary_writer):
     summary = tf.Summary()
 
     male_indexes = np.where(valid_genders == 1)[0]
     female_indexes = np.where(valid_genders == 0)[0]
 
-    male_embeddings = valid_embeddings[male_indexes]
-    female_embeddings = valid_embeddings[female_indexes]
+    nrof_male = len(male_indexes)
+    nrof_female = len(female_indexes)
 
-    accuracy = session.run(accuracy_tensor, feed_dict={
-        embeddings_placeholder: valid_embeddings,
-        labels_placeholder: valid_genders,
+    tp = session.run(correct_sum, feed_dict={
+        embeddings_placeholder: valid_embeddings[male_indexes],
+        labels_placeholder: valid_genders[male_indexes],
         phase_train_placeholder: False
     })
+    fn = nrof_male - tp
+    tn = session.run(correct_sum, feed_dict={
+        embeddings_placeholder: valid_embeddings[female_indexes],
+        labels_placeholder: valid_genders[female_indexes],
+        phase_train_placeholder: False
+    })
+    fp = nrof_female - tn
+    accuracy = float(tp + tn) / len(valid_embeddings)
 
+    tpr = float(tp) / float(nrof_male)
+    fpr = float(fp) / float(nrof_female)
+    tnr = float(tn) / float(nrof_female)
+    fnr = float(fn) / float(nrof_male)
+    summary.value.add(tag="evaluate/TPR", simple_value=tpr)
+    summary.value.add(tag="evaluate/FPR", simple_value=fpr)
+    summary.value.add(tag="evaluate/TNR", simple_value=tnr)
+    summary.value.add(tag="evaluate/FNR", simple_value=fnr)
     summary.value.add(tag="evaluate/accuracy", simple_value=accuracy)
     summary_writer.add_summary(summary, global_step)
     print("\t\t Epoch: %3d, Valid Accuracy: %1.4f" % (epoch, accuracy))
