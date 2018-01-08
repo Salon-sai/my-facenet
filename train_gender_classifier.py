@@ -176,6 +176,10 @@ def parse_arguments(argv):
     parser.add_argument("--models_base_dir", type=str, help="Direcotry where to save the parameters of model",
                         default="models/")
     parser.add_argument("--weight_decay_l1", type=float, help="L1 weight regularization", default=0.0)
+<<<<<<< HEAD
+=======
+    parser.add_argument("--weight_decay_l2", type=float, help="L2 weight regularization", default=0.0)
+>>>>>>> origin/master
 
     return parser.parse_args(argv)
 
