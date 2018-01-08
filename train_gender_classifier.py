@@ -16,13 +16,12 @@ import datetime
 from data_process.utils import load_data
 from data_process.imdb_process import ImageDatabase
 
-def gender_model(embeddings):
+def gender_model(embeddings, weight1_decay, weight2_decay):
     with tf.variable_scope("gender_model"):
         with slim.arg_scope([slim.fully_connected],
                             weights_initializer=tf.random_normal_initializer(),
                             biases_initializer=tf.constant_initializer(),
-                            activation_fn=None,
-                            weights_regularizer=slim.l2_regularizer(scale=0.5)):
+                            weights_regularizer=slim.l1_l2_regularizer(scale_l1=weight1_decay, scale_l2=weight2_decay)):
             net = slim.fully_connected(embeddings, num_outputs=64, scope="hidden_1")
             net = slim.fully_connected(net, num_outputs=16, scope="hidden_2")
             net = slim.fully_connected(net, num_outputs=4, scope="hidden_3")
@@ -54,18 +53,20 @@ def main(args):
 
         for i in range(nrof_batch):
             start_index = i * batch_size
-            end_index = min(image_database.nrof_images, (i + 1) + batch_size)
+            end_index = min(image_database.nrof_images, (i + 1) * batch_size)
             images = load_data(image_database.images_path[start_index: end_index], False, False, args.image_size)
             feed_dict = { images_placeholder: images, phase_train_placeholder: False}
             emb_array[start_index: end_index] = session.run(embeddings, feed_dict=feed_dict)
 
     image_database.embeddings = emb_array
     train_gender(image_database, embedding_size, args.optimizer, args.epoch_size, batch_size, log_dir,
-                 args.learning_rate_decay_step, args.learning_rate_decay_factor, args.learning_rate)
+                 args.learning_rate_decay_step, args.learning_rate_decay_factor, args.learning_rate,
+                 args.weight_decay_l1, args.weight_decay_l2)
 
 
 def train_gender(image_database, embedding_size, optimizer_type, max_num_epoch, batch_size, log_dir,
-                 learning_rate_decay_step, learning_rate_decay_factor, init_learning_rate):
+                 learning_rate_decay_step, learning_rate_decay_factor, init_learning_rate, weight_decay_l1,
+                 weight_decay_l2):
     _, train_embeddings, _, train_genders = image_database.train_data
     valid_images_path, valid_embeddings, _, valid_genders = image_database.valid_data
     nrof_train_samples = len(train_embeddings)
@@ -83,7 +84,7 @@ def train_gender(image_database, embedding_size, optimizer_type, max_num_epoch, 
 
         global_step = tf.Variable(0, trainable=False)
 
-        logits = gender_model(embeddings_placeholder)
+        logits = gender_model(embeddings_placeholder, weight_decay_l1, weight_decay_l2)
 
         correct = tf.equal(tf.argmax(logits, 1), labels_placeholder)
 
@@ -174,7 +175,8 @@ def parse_arguments(argv):
     parser.add_argument("--logs_base_dir", type=str, help='Directory where to write event logs.', default='logs/')
     parser.add_argument("--models_base_dir", type=str, help="Direcotry where to save the parameters of model",
                         default="models/")
-
+    parser.add_argument("--weight_decay_l1", type=float, help="L1 weight regularization", default=0.0)
+    parser.add_argument("--weight_decay_l2", type=float, help="L2 weight regularization", default=0.0)
 
     return parser.parse_args(argv)
 
