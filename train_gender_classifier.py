@@ -16,19 +16,27 @@ import datetime
 from data_process.utils import load_data
 from data_process.imdb_process import ImageDatabase
 
-def gender_model(embeddings, weight_decay1):
+def gender_model(embeddings, weight_decay1, phase_train=True):
     with tf.variable_scope("gender_model"):
         with slim.arg_scope([slim.fully_connected],
                             weights_initializer=tf.truncated_normal_initializer(stddev=0.1),
                             biases_initializer=tf.constant_initializer(),
-                            activation_fn=None,
+                            # activation_fn=None,
+                            normalizer_fn=slim.batch_norm,
+                            normalizer_params={
+                                'decay': 0.995,
+                                'epsilon': 0.001,
+                                'updates_collections': None,
+                                'variables_collections': [tf.GraphKeys.TRAINABLE_VARIABLES],
+                            },
                             weights_regularizer=slim.l1_regularizer(weight_decay1)):
-            net = slim.fully_connected(embeddings, num_outputs=64, scope="hidden_1")
-            net = slim.fully_connected(net, num_outputs=32, scope="hidden_2")
-            net = slim.fully_connected(net, num_outputs=16, scope="hidden_3")
-            net = slim.fully_connected(net, num_outputs=8, scope="hidden_4")
-            net = slim.fully_connected(net, num_outputs=4, scope="hidden_5")
-            net = slim.fully_connected(net, num_outputs=2, activation_fn=None, scope="logits")
+            with slim.arg_scope([slim.batch_norm], is_training=phase_train):
+                net = slim.fully_connected(embeddings, num_outputs=64, scope="hidden_1")
+                net = slim.fully_connected(net, num_outputs=32, scope="hidden_2")
+                net = slim.fully_connected(net, num_outputs=16, scope="hidden_3")
+                net = slim.fully_connected(net, num_outputs=8, scope="hidden_4")
+                net = slim.fully_connected(net, num_outputs=4, scope="hidden_5")
+                net = slim.fully_connected(net, num_outputs=2, activation_fn=None, scope="logits")
     return net
 
 def main(args):
@@ -81,12 +89,15 @@ def train_gender(image_database, embedding_size, optimizer_type, max_num_epoch, 
 
     with tf.Graph().as_default() as graph:
         labels_placeholder = tf.placeholder(dtype=tf.int64, shape=[None], name="gender_label")
+
         embeddings_placeholder = tf.placeholder(dtype=tf.float32, shape=[None, embedding_size],
                                                 name="embeddings_placeholder")
 
+        phase_train_placeholder = tf.placeholder(dtype=tf.bool, name="phase_gender_train")
+
         global_step = tf.Variable(0, trainable=False)
 
-        logits = gender_model(embeddings_placeholder, weight_decay_l1)
+        logits = gender_model(embeddings_placeholder, weight_decay_l1, phase_train_placeholder)
 
         correct = tf.equal(tf.argmax(logits, 1), labels_placeholder)
 
@@ -133,6 +144,7 @@ def train_gender(image_database, embedding_size, optimizer_type, max_num_epoch, 
                 feed_dict = {
                     labels_placeholder: train_genders[start_index: end_index],
                     embeddings_placeholder: train_embeddings[start_index: end_index],
+                    phase_train_placeholder: True
                 }
                 batch_loss, _, gs, summary, lr = \
                     session.run([total_losses, train_op, global_step, summary_op, learning_rate],
@@ -146,7 +158,8 @@ def train_gender(image_database, embedding_size, optimizer_type, max_num_epoch, 
             # evaluate
             acc = session.run(accuracy, feed_dict={
                 labels_placeholder: valid_genders,
-                embeddings_placeholder: valid_embeddings
+                embeddings_placeholder: valid_embeddings,
+                phase_train_placeholder: False
             })
             print("----------------\n")
             print("\n")
