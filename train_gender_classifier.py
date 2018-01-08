@@ -83,8 +83,8 @@ def main(args):
     print("The training number of female: %d" % np.sum(train_genders == 0))
     print("The training number of male: %d" % np.sum(train_genders == 1))
 
-    print("The training number of female: %d" % np.sum(valid_genders == 0))
-    print("The training number of male: %d" % np.sum(valid_genders == 1))
+    print("The valid number of female: %d" % np.sum(valid_genders == 0))
+    print("The valid number of male: %d" % np.sum(valid_genders == 1))
 
     with tf.Graph().as_default() as graph:
         labels_placeholder = tf.placeholder(dtype=tf.int64, shape=[None], name="gender_label")
