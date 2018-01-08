@@ -16,7 +16,7 @@ import datetime
 from data_process.utils import load_data
 from data_process.imdb_process import ImageDatabase
 
-def gender_model(embeddings, weight_decay1, weight_decay2):
+def gender_model(embeddings, weight_decay1):
     with tf.variable_scope("gender_model"):
         with slim.arg_scope([slim.fully_connected],
                             weights_initializer=tf.random_normal_initializer(),
@@ -62,12 +62,11 @@ def main(args):
     image_database.embeddings = emb_array
     train_gender(image_database, embedding_size, args.optimizer, args.epoch_size, batch_size, log_dir,
                  args.learning_rate_decay_step, args.learning_rate_decay_factor, args.learning_rate,
-                 args.weight_decay_l1, args.weight_decay_l2)
+                 args.weight_decay_l1)
 
 
 def train_gender(image_database, embedding_size, optimizer_type, max_num_epoch, batch_size, log_dir,
-                 learning_rate_decay_step, learning_rate_decay_factor, init_learning_rate, weight_decay_l1,
-                 weight_decay_l2):
+                 learning_rate_decay_step, learning_rate_decay_factor, init_learning_rate, weight_decay_l1):
     _, train_embeddings, _, train_genders = image_database.train_data
     valid_images_path, valid_embeddings, _, valid_genders = image_database.valid_data
     nrof_train_samples = len(train_embeddings)
@@ -85,7 +84,7 @@ def train_gender(image_database, embedding_size, optimizer_type, max_num_epoch, 
 
         global_step = tf.Variable(0, trainable=False)
 
-        logits = gender_model(embeddings_placeholder, weight_decay_l1, weight_decay_l2)
+        logits = gender_model(embeddings_placeholder, weight_decay_l1)
 
         correct = tf.equal(tf.argmax(logits, 1), labels_placeholder)
 
