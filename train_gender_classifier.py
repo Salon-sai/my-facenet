@@ -149,7 +149,7 @@ def main(args):
             print("evaluating...")
             evaluate(session, valid_embeddings, valid_genders, embeddings_placeholder, labels_placeholder,
                      phase_train_placeholder, gs, epoch, correct_sum, summary_writer)
-
+            epoch += 1
         session.close()
 
 def train(session, train_embeddings, train_genders, embeddings_placeholder, labels_placeholder, phase_train_placeholder,
