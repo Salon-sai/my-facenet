@@ -3,6 +3,9 @@
 import os
 
 import numpy as np
+import tensorflow as tf
+from model import utils
+from data_process.utils import load_data
 
 class ImageDatabase(object):
 
@@ -77,3 +80,28 @@ class ImageDatabase(object):
     @embeddings.setter
     def embeddings(self, embeddings):
         self._embeddings = embeddings
+
+
+def calculate_embedding(facenet_model_path, images_path, batch_size, image_size):
+    nrof_images = len(images_path)
+
+    with tf.Session() as session:
+        utils.load_model(model=facenet_model_path)
+
+        images_placeholder = tf.get_default_graph().get_tensor_by_name("input:0")
+        phase_train_placeholder = tf.get_default_graph().get_tensor_by_name("phase_train:0")
+        embeddings = tf.get_default_graph().get_tensor_by_name("embeddings:0")
+        embedding_size = embeddings.get_shape()[1]
+
+        emb_array = np.zeros((nrof_images, embedding_size))
+
+        nrof_batch = int(np.ceil(nrof_images / batch_size))
+
+        for i in range(nrof_batch):
+            start_index = i * batch_size
+            end_index = min(nrof_images, (i + 1) * batch_size)
+            images = load_data(images_path[start_index: end_index], False, False, image_size)
+            feed_dict = { images_placeholder: images, phase_train_placeholder: False}
+            emb_array[start_index: end_index] = session.run(embeddings, feed_dict=feed_dict)
+
+    return emb_array

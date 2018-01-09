@@ -10,12 +10,10 @@ import numpy as np
 
 import optimizer
 
-from model import utils
 from tensorflow.contrib import slim
 import datetime
 
-from data_process.utils import load_data
-from data_process.imdb_process import ImageDatabase
+from data_process.imdb_process import ImageDatabase, calculate_embedding
 
 def gender_model(embeddings, weight_decay1, phase_train=True):
     with tf.variable_scope("gender_model"):
@@ -55,27 +53,21 @@ def main(args):
     if not os.path.isdir(model_dir):
         os.makedirs(model_dir)
 
-    with tf.Session() as session:
-        utils.load_model(model=args.model_path)
 
-        images_placeholder = tf.get_default_graph().get_tensor_by_name("input:0")
-        phase_train_placeholder = tf.get_default_graph().get_tensor_by_name("phase_train:0")
-        embeddings = tf.get_default_graph().get_tensor_by_name("embeddings:0")
-        embedding_size = embeddings.get_shape()[1]
+    image_database.embeddings = calculate_embedding(facenet_model_path=args.model_path,
+                                                    images_path=image_database.images_path,
+                                                    batch_size=batch_size,
+                                                    image_size=args.image_size)
+    embedding_size = image_database.embeddings.shape[1]
 
-        emb_array = np.zeros((image_database.nrof_images, embedding_size))
 
-        nrof_batch = int(np.ceil(image_database.nrof_images / batch_size))
+    gender_classifier(embedding_size, args.weight_decay_l1, args.learning_rate, args.learning_rate_decay_step,
+                      args.learning_rate_decay_factor, args.optimizer, args.epoch_size, args.batch_size,
+                      log_dir, model_dir, subdir, image_database)
 
-        for i in range(nrof_batch):
-            start_index = i * batch_size
-            end_index = min(image_database.nrof_images, (i + 1) * batch_size)
-            images = load_data(image_database.images_path[start_index: end_index], False, False, args.image_size)
-            feed_dict = { images_placeholder: images, phase_train_placeholder: False}
-            emb_array[start_index: end_index] = session.run(embeddings, feed_dict=feed_dict)
-
-    image_database.embeddings = emb_array
-
+def gender_classifier(embedding_size, weight_decay_l1, learning_rate, learning_rate_decay_step,
+                      learning_rate_decay_factor, optimizer_name, epoch_size, batch_size,
+                      log_dir, model_dir, subdir, image_database):
     _, train_embeddings, _, train_genders = image_database.train_data
     _, valid_embeddings, _, valid_genders = image_database.valid_data
     _, test_embeddings, _, test_genders = image_database.test_data
@@ -96,7 +88,7 @@ def main(args):
 
         global_step = tf.Variable(0, trainable=False)
 
-        logits = gender_model(embeddings_placeholder, args.weight_decay_l1, phase_train_placeholder)
+        logits = gender_model(embeddings_placeholder, weight_decay_l1, phase_train_placeholder)
 
         correct = tf.equal(tf.argmax(logits, 1), labels_placeholder)
 
@@ -113,13 +105,13 @@ def main(args):
 
         update_vars = tf.get_collection(tf.GraphKeys.GLOBAL_VARIABLES, "gender_model")
 
-        learning_rate = tf.train.exponential_decay(args.learning_rate, global_step, args.learning_rate_decay_step,
-                                                   args.learning_rate_decay_factor, True)
+        learning_rate = tf.train.exponential_decay(learning_rate, global_step, learning_rate_decay_step,
+                                                   learning_rate_decay_factor, True)
         tf.summary.scalar("learning_rate", learning_rate)
 
         train_op = optimizer.train(total_loss=total_losses,
                                    global_step=global_step,
-                                   optimizer=args.optimizer,
+                                   optimizer=optimizer_name,
                                    learning_rate=learning_rate,
                                    moving_average_decay=0.99,
                                    update_gradient_vars=update_vars,
@@ -136,7 +128,7 @@ def main(args):
         session.run(tf.local_variables_initializer())
 
         epoch = 0
-        while epoch < args.epoch_size:
+        while epoch < epoch_size:
             gs = session.run(global_step, feed_dict=None)
 
             train(session, train_embeddings, train_genders, embeddings_placeholder, labels_placeholder,
