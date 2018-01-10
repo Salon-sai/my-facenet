@@ -56,7 +56,7 @@ def age_model(embeddings, weight_decay1, phase_train=True):
                 net = slim.fully_connected(net, num_outputs=32, scope="hidden_2")
                 net = slim.fully_connected(net, num_outputs=16, scope="hidden_3")
                 net = slim.fully_connected(net, num_outputs=8, scope="hidden_4")
-                net = slim.fully_connected(net, num_outputs=4, activation_fn=None, scope="logits")
+                net = slim.fully_connected(net, num_outputs=3, activation_fn=None, scope="logits")
     return net
 
 def main(args):
@@ -181,7 +181,7 @@ def gender_classifier(embedding_size, weight_decay_l1, learning_rate, learning_r
             epoch += 1
         session.close()
 
-def train(session, train_embeddings, train_genders, embeddings_placeholder, labels_placeholder, phase_train_placeholder,
+def train(session, train_embeddings, train_labels, embeddings_placeholder, labels_placeholder, phase_train_placeholder,
           global_step, total_losses, learning_rate, train_op, summary_op, summary_writer, batch_size):
     nrof_train_samples = len(train_embeddings)
     nrof_train_batch = int(np.ceil(nrof_train_samples / batch_size))
@@ -194,7 +194,7 @@ def train(session, train_embeddings, train_genders, embeddings_placeholder, labe
         feed_dict = {
             phase_train_placeholder: True,
             embeddings_placeholder: train_embeddings[start_index: end_index],
-            labels_placeholder: train_genders[start_index: end_index]
+            labels_placeholder: train_labels[start_index: end_index]
         }
         batch_loss, _, gs, summary, lr = \
             session.run([total_losses, train_op, global_step, summary_op, learning_rate],
@@ -319,15 +319,13 @@ def age_classifier(embedding_size, weight_decay_l1, learning_rate, learning_rate
         session.run(tf.local_variables_initializer())
 
         epoch = 0
-        child_indexes = np.where(train_ages <= 18)[0]
-        youth_indexes = np.where(np.logical_and(train_ages > 18, train_ages <= 45))[0]
-        middle_indexes = np.where(np.logical_and(train_ages > 45, train_ages <= 59))[0]
+        youth_indexes = np.where(train_ages <= 30)[0]
+        middle_indexes = np.where(np.logical_and(train_ages > 30, train_ages <= 59))[0]
         old_indexes = np.where(train_ages > 59)[0]
         while epoch < epoch_size:
             gs = session.run(global_step, feed_dict=None)
 
             selection_ages, selection_embeddings = ages_selection(train_embeddings,
-                                                                  child_indexes,
                                                                   youth_indexes,
                                                                   middle_indexes,
                                                                   old_indexes)
@@ -347,23 +345,20 @@ def age_classifier(embedding_size, weight_decay_l1, learning_rate, learning_rate
 
         session.close()
 
-def ages_selection(embeddings, child_indexes, youth_indexes, middle_indexes, old_indexes, max_num=None):
-    np.random.shuffle(child_indexes)
+def ages_selection(embeddings, youth_indexes, middle_indexes, old_indexes, max_num=None):
     np.random.shuffle(youth_indexes)
     np.random.shuffle(middle_indexes)
     np.random.shuffle(old_indexes)
 
     if max_num is None:
-        num_image = min(len(child_indexes), len(youth_indexes), len(middle_indexes), len(old_indexes))
+        num_image = min(len(youth_indexes), len(middle_indexes), len(old_indexes))
     else:
-        num_image = min(len(child_indexes), len(youth_indexes), len(middle_indexes), len(old_indexes), max_num)
+        num_image = min(len(youth_indexes), len(middle_indexes), len(old_indexes), max_num)
 
     selection_ages = np.concatenate((np.full((num_image), 0),
                     np.full((num_image), 1),
-                    np.full((num_image), 2),
-                    np.full((num_image), 3)))
-    selection_embeddings = np.concatenate((embeddings[child_indexes[:num_image]],
-                                           embeddings[youth_indexes[:num_image]],
+                    np.full((num_image), 2)))
+    selection_embeddings = np.concatenate((embeddings[youth_indexes[:num_image]],
                                            embeddings[middle_indexes[:num_image]],
                                            embeddings[old_indexes[:num_image]]), axis=0)
 
@@ -373,17 +368,15 @@ def age_evaluate(session, valid_embeddings, valid_ages, embeddings_placeholder, 
                  phase_train_placeholder, global_step, epoch, correct_sum, summary_writer):
     summary = tf.Summary()
 
-    child_index = np.where(valid_ages <= 18)[0]
-    youth_index = np.where(np.logical_and(valid_ages > 18, valid_ages <= 45))[0]
-    middle_index = np.where(np.logical_and(valid_ages > 45, valid_ages <= 59))[0]
+    youth_index = np.where(valid_ages <= 30)[0]
+    middle_index = np.where(np.logical_and(valid_ages > 30, valid_ages <= 59))[0]
     old_index = np.where(valid_ages > 59)[0]
 
     age_labels = np.empty((len(valid_ages)))
 
-    age_labels[child_index] = 0
-    age_labels[youth_index] = 1
-    age_labels[middle_index] = 2
-    age_labels[old_index] = 3
+    age_labels[youth_index] = 0
+    age_labels[middle_index] = 1
+    age_labels[old_index] = 2
 
     correct_count = session.run(correct_sum, feed_dict={
         embeddings_placeholder: valid_embeddings,
