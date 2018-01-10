@@ -94,13 +94,13 @@ def main(args):
     embedding_size = image_database.embeddings.shape[1]
 
 
-    # gender_classifier(embedding_size, args.weight_decay_l1, args.learning_rate, args.learning_rate_decay_step,
-    #                   args.learning_rate_decay_factor, args.optimizer, args.epoch_size, args.batch_size,
-    #                   log_dir, model_dir, subdir, image_database)
+    gender_classifier(embedding_size, args.weight_decay_l1, args.learning_rate, args.learning_rate_decay_step,
+                      args.learning_rate_decay_factor, args.optimizer, args.epoch_size, args.batch_size,
+                      gender_log_dir, gender_model_dir, gender_subdir, image_database)
 
-    age_classifier(embedding_size,  args.weight_decay_l1, args.learning_rate, args.learning_rate_decay_step,
-                   args.learning_rate_decay_factor, args.optimizer, args.epoch_size, args.batch_size,
-                   age_log_dir, age_model_dir, age_subdir, image_database)
+    # age_classifier(embedding_size,  args.weight_decay_l1, args.learning_rate, args.learning_rate_decay_step,
+    #                args.learning_rate_decay_factor, args.optimizer, args.epoch_size, args.batch_size,
+    #                age_log_dir, age_model_dir, age_subdir, image_database)
 
 def gender_classifier(embedding_size, weight_decay_l1, learning_rate, learning_rate_decay_step,
                       learning_rate_decay_factor, optimizer_name, epoch_size, batch_size,
