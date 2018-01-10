@@ -56,12 +56,7 @@ def age_model(embeddings, weight_decay1, phase_train=True):
                 net = slim.fully_connected(net, num_outputs=32, scope="hidden_2")
                 net = slim.fully_connected(net, num_outputs=16, scope="hidden_3")
                 net = slim.fully_connected(net, num_outputs=8, scope="hidden_4")
-
-        net = slim.fully_connected(net,
-                                   num_outputs=4,
-                                   activation_fn=None,
-                                   biases_initializer=tf.constant_initializer(0),
-                                   scope="logits")
+                net = slim.fully_connected(net, num_outputs=4, activation_fn=None, scope="logits")
     return net
 
 def main(args):
