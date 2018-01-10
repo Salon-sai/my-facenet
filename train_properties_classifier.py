@@ -42,7 +42,6 @@ def age_model(embeddings, weight_decay1, phase_train=True):
     with tf.variable_scope("age_model"):
         with slim.arg_scope([slim.fully_connected],
                             weights_initializer=tf.truncated_normal_initializer(stddev=0.1),
-                            biases_initializer=tf.constant_initializer(),
                             # activation_fn=None,
                             normalizer_fn=slim.batch_norm,
                             normalizer_params={
@@ -57,7 +56,12 @@ def age_model(embeddings, weight_decay1, phase_train=True):
                 net = slim.fully_connected(net, num_outputs=32, scope="hidden_2")
                 net = slim.fully_connected(net, num_outputs=16, scope="hidden_3")
                 net = slim.fully_connected(net, num_outputs=8, scope="hidden_4")
-                net = slim.fully_connected(net, num_outputs=4, activation_fn=None, scope="logits")
+
+        net = slim.fully_connected(net,
+                                   num_outputs=4,
+                                   activation_fn=None,
+                                   biases_initializer=tf.constant_initializer(0),
+                                   scope="logits")
     return net
 
 def main(args):
@@ -331,8 +335,7 @@ def age_classifier(embedding_size, weight_decay_l1, learning_rate, learning_rate
                                                                   child_indexes,
                                                                   youth_indexes,
                                                                   middle_indexes,
-                                                                  old_indexes,
-                                                                  max_num=1000)
+                                                                  old_indexes)
 
             train(session, selection_embeddings, selection_ages, embeddings_placeholder, labels_placeholder,
                   phase_train_placeholder, global_step, total_losses, learning_rate, train_op, summary_op,
@@ -375,9 +378,21 @@ def age_evaluate(session, valid_embeddings, valid_ages, embeddings_placeholder, 
                  phase_train_placeholder, global_step, epoch, correct_sum, summary_writer):
     summary = tf.Summary()
 
+    child_index = np.where(valid_ages <= 18)[0]
+    youth_index = np.where(np.logical_and(valid_ages > 18, valid_ages <= 45))[0]
+    middle_index = np.where(np.logical_and(valid_ages > 45, valid_ages <= 59))[0]
+    old_index = np.where(valid_ages > 59)[0]
+
+    age_labels = np.empty((len(valid_ages)))
+
+    age_labels[child_index] = 0
+    age_labels[youth_index] = 1
+    age_labels[middle_index] = 2
+    age_labels[old_index] = 3
+
     correct_count = session.run(correct_sum, feed_dict={
         embeddings_placeholder: valid_embeddings,
-        labels_placeholder: valid_ages,
+        labels_placeholder: age_labels,
         phase_train_placeholder: False
     })
 
