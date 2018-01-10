@@ -127,7 +127,9 @@ def gender_classifier(embedding_size, weight_decay_l1, learning_rate, learning_r
 
         logits = gender_model(embeddings_placeholder, weight_decay_l1, phase_train_placeholder)
 
-        correct = tf.equal(tf.argmax(logits, 1), labels_placeholder)
+        predict = tf.identity(logits, "predict")
+
+        correct = tf.equal(tf.argmax(predict, 1), labels_placeholder, name="correct")
 
         correct_sum = tf.reduce_sum(tf.cast(correct, "float"))
 
