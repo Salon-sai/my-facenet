@@ -174,7 +174,7 @@ def gender_classifier(embedding_size, weight_decay_l1, learning_rate, learning_r
                                    learning_rate=learning_rate,
                                    moving_average_decay=0.99,
                                    update_gradient_vars=update_vars,
-                                   log_historgrams=True)
+                                   record_var=True)
 
         saver = tf.train.Saver(update_vars, max_to_keep=3)
 
