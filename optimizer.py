@@ -33,20 +33,22 @@ def _add_loss_summaries(total_loss):
         tf.summary.scalar('loss/' + l.op.name, loss_averages.average(l))
     return loss_averages_op
 
-def variable_summaries(var, name):
+def variable_summaries(var, name, only_histograms=True):
     """
 
     :param var:
     :param name:
     :return:
     """
-    mean = tf.reduce_sum(var)
-    tf.summary.scalar(name + "_mean", mean)
-    tf.summary.scalar(name + "_max", tf.reduce_max(var))
-    tf.summary.scalar(name + "_min", tf.reduce_min(var))
+    if not only_histograms:
+        mean = tf.reduce_sum(var)
+        tf.summary.scalar(name + "_mean", mean)
+        tf.summary.scalar(name + "_max", tf.reduce_max(var))
+        tf.summary.scalar(name + "_min", tf.reduce_min(var))
     tf.summary.histogram(name, var)
 
-def train(total_loss, global_step, optimizer, learning_rate, moving_average_decay, update_gradient_vars, log_historgrams=True):
+def train(total_loss, global_step, optimizer, learning_rate, moving_average_decay, update_gradient_vars,
+          record_var=True, only_histograms=True):
 
     loss_averages_op = _add_loss_summaries(total_loss)
 
@@ -68,12 +70,12 @@ def train(total_loss, global_step, optimizer, learning_rate, moving_average_deca
 
     apply_gradient_op = opt.apply_gradients(grads, global_step=global_step)
 
-    if log_historgrams:
+    if record_var:
         for var in tf.trainable_variables():
-            variable_summaries(var, var.name)
+            variable_summaries(var, var.name, only_histograms)
 
         for grad, var in grads:
-            variable_summaries(grad, "gradient/" + var.op.name)
+            variable_summaries(grad, "gradient/" + var.op.name, only_histograms)
 
     variable_averages = tf.train.ExponentialMovingAverage(moving_average_decay, global_step)
 
