@@ -30,21 +30,29 @@ def gender_model(embeddings, weight_decay1, phase_train=True):
                             },
                             weights_regularizer=slim.l1_regularizer(weight_decay1)):
             with slim.arg_scope([slim.batch_norm], is_training=phase_train):
-                net = slim.fully_connected(embeddings, num_outputs=64, scope="hidden_1")
-                net = slim.fully_connected(net, num_outputs=64, scope="hidden_2")
-                net = slim.fully_connected(net, num_outputs=64, scope="hidden_3")
-                net = slim.fully_connected(net, num_outputs=32, scope="hidden_4")
-                net = slim.fully_connected(net, num_outputs=32, scope="hidden_5")
+                net = slim.fully_connected(embeddings, num_outputs=128, scope="hidden_1")
+                net = slim.fully_connected(net, num_outputs=128, scope="hidden_2")
+                net = slim.fully_connected(net, num_outputs=128, scope="hidden_3")
+
+                net = slim.fully_connected(net, num_outputs=64, scope="hidden_4")
+                net = slim.fully_connected(net, num_outputs=64, scope="hidden_5")
                 net = slim.fully_connected(net, num_outputs=32, scope="hidden_6")
-                net = slim.fully_connected(net, num_outputs=16, scope="hidden_7")
-                net = slim.fully_connected(net, num_outputs=16, scope="hidden_8")
+                net = slim.fully_connected(net, num_outputs=32, scope="hidden_7")
+                net = slim.fully_connected(net, num_outputs=32, scope="hidden_8")
+
                 net = slim.fully_connected(net, num_outputs=16, scope="hidden_9")
-                net = slim.fully_connected(net, num_outputs=8, scope="hidden_10")
-                net = slim.fully_connected(net, num_outputs=8, scope="hidden_11")
-                net = slim.fully_connected(net, num_outputs=8, scope="hidden_12")
-                net = slim.fully_connected(net, num_outputs=4, scope="hidden_13")
-                net = slim.fully_connected(net, num_outputs=4, scope="hidden_14")
-                net = slim.fully_connected(net, num_outputs=4, scope="hidden_15")
+                net = slim.fully_connected(net, num_outputs=16, scope="hidden_10")
+                net = slim.fully_connected(net, num_outputs=16, scope="hidden_11")
+                net = slim.fully_connected(net, num_outputs=16, scope="hidden_12")
+                net = slim.fully_connected(net, num_outputs=16, scope="hidden_13")
+                net = slim.fully_connected(net, num_outputs=16, scope="hidden_14")
+
+                net = slim.fully_connected(net, num_outputs=8, scope="hidden_15")
+                net = slim.fully_connected(net, num_outputs=8, scope="hidden_16")
+                net = slim.fully_connected(net, num_outputs=8, scope="hidden_17")
+                net = slim.fully_connected(net, num_outputs=4, scope="hidden_18")
+                net = slim.fully_connected(net, num_outputs=4, scope="hidden_19")
+                net = slim.fully_connected(net, num_outputs=4, scope="hidden_20")
                 net = slim.fully_connected(net, num_outputs=2, activation_fn=None, normalizer_fn=None, scope="logits")
     return net
 
