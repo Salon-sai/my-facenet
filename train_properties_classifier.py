@@ -23,10 +23,10 @@ def gender_model(embeddings, weight_decay1, phase_train=True):
             up = slim.fully_connected(up, num_outputs=num_outputs, activation_fn=None,
                                       normalizer_fn=None, scope="hidden_2")
 
-            net += scale * up
+            net = tf.nn.bias_add(net, scale * up)
 
             if activation_fn:
-                tf.nn.relu(net)
+                net = tf.nn.relu(net)
         return net
 
     with tf.variable_scope("gender_model"):
@@ -48,10 +48,10 @@ def gender_model(embeddings, weight_decay1, phase_train=True):
                 net = slim.repeat(net, 3, ResBlock, num_outputs=64)
 
                 net = slim.fully_connected(net, num_outputs=32, scope="change-cells-2")
-                net = slim.repeat(net, 4, ResBlock, num_outputs=32)
+                net = slim.repeat(net, 6, ResBlock, num_outputs=32)
 
                 net = slim.fully_connected(net, num_outputs=16, scope="change-cells-3")
-                net = slim.repeat(net, 5, ResBlock, num_outputs=16)
+                net = slim.repeat(net, 8, ResBlock, num_outputs=16)
 
                 net = slim.fully_connected(net, num_outputs=8, scope="change-cells-4")
                 net = slim.repeat(net, 6, ResBlock, num_outputs=8)
