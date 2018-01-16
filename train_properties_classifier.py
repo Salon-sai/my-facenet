@@ -44,14 +44,19 @@ def gender_model(embeddings, weight_decay1, phase_train=True):
             with slim.arg_scope([slim.batch_norm], is_training=phase_train):
                 net = slim.repeat(embeddings, 3, ResBlock, num_outputs=128)
 
+                net = slim.fully_connected(net, num_outputs=64, scope="change-cells-1")
                 net = slim.repeat(net, 3, ResBlock, num_outputs=64)
 
+                net = slim.fully_connected(net, num_outputs=32, scope="change-cells-2")
                 net = slim.repeat(net, 4, ResBlock, num_outputs=32)
 
+                net = slim.fully_connected(net, num_outputs=16, scope="change-cells-3")
                 net = slim.repeat(net, 5, ResBlock, num_outputs=16)
 
+                net = slim.fully_connected(net, num_outputs=8, scope="change-cells-4")
                 net = slim.repeat(net, 6, ResBlock, num_outputs=8)
 
+                net = slim.fully_connected(net, num_outputs=4, scope="change-cells-5")
                 net = slim.repeat(net, 3, ResBlock, num_outputs=4)
 
                 # net = slim.fully_connected(embeddings, num_outputs=128, scope="hidden_1")
@@ -363,8 +368,7 @@ def age_classifier(embedding_size, weight_decay_l1, learning_rate, learning_rate
                                    optimizer=optimizer_name,
                                    learning_rate=learning_rate,
                                    moving_average_decay=0.99,
-                                   update_gradient_vars=update_vars,
-                                   log_historgrams=True)
+                                   update_gradient_vars=update_vars)
 
         saver = tf.train.Saver(update_vars, max_to_keep=3)
 
