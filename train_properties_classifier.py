@@ -23,7 +23,7 @@ def gender_model(embeddings, weight_decay1, phase_train=True):
             up = slim.fully_connected(up, num_outputs=num_outputs, activation_fn=None,
                                       normalizer_fn=None, scope="hidden_2")
 
-            net = tf.nn.bias_add(net, scale * up)
+            net = tf.nn.bias_add(net, scale * up, name="residual_add")
 
             if activation_fn:
                 net = tf.nn.relu(net)
