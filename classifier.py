@@ -32,7 +32,7 @@ def train(session, train_embeddings, train_labels, embeddings_placeholder, label
         summary_writer.add_summary(temp_summary, gs)
 
         batch_losses[i] = batch_loss
-        print("[%3d/%6d] Batch Loss: %1.4f, Learning rate: %1.4f" % (gs // nrof_train_batch, gs, batch_loss, lr))
+        print("[%3d/%6d] Batch Loss: %1.4f, Learning rate: %1.7f" % (gs // nrof_train_batch, gs, batch_loss, lr))
 
     epoch_summary = tf.Summary()
     epoch_summary.value.add(tag="train_batch/loss_mean", simple_value=batch_losses.mean())

@@ -21,19 +21,21 @@ def age_model(embeddings, weight_decay1, phase_train=True):
                             },
                             weights_regularizer=slim.l1_regularizer(weight_decay1)):
             with slim.arg_scope([slim.batch_norm], is_training=phase_train):
-                net = slim.fully_connected(embeddings, num_outputs=64, scope="hidden_1")
-                net = slim.fully_connected(net, num_outputs=32, scope="hidden_2")
-                net = slim.fully_connected(net, num_outputs=16, scope="hidden_3")
-                net = slim.fully_connected(net, num_outputs=8, scope="hidden_4")
-                net = slim.fully_connected(net, num_outputs=3, activation_fn=None, scope="logits")
+                # net = slim.fully_connected(embeddings, num_outputs=64, scope="hidden_1")
+                # net = slim.fully_connected(net, num_outputs=32, scope="hidden_2")
+                # net = slim.fully_connected(net, num_outputs=16, scope="hidden_3")
+                # net = slim.fully_connected(net, num_outputs=8, scope="hidden_4")
+                net = slim.fully_connected(embeddings, num_outputs=3, activation_fn=None, normalizer_fn=None, scope="logits")
     return net
 
 def age_classifier(embedding_size, weight_decay_l1, learning_rate, learning_rate_decay_step,
                    learning_rate_decay_factor, optimizer_name, epoch_size, batch_size,
                    log_dir, model_dir, subdir, image_database):
-    _, train_embeddings, train_ages, _ = image_database.train_data
-    _, valid_embeddings, valid_ages, _ = image_database.valid_data
-    _, test_embeddings, test_ages, _ = image_database.test_data
+    # _, train_embeddings, train_ages, _ = image_database.train_data
+    # _, valid_embeddings, valid_ages, _ = image_database.valid_data
+    # _, test_embeddings, test_ages, _ = image_database.test_data
+    _, train_ages, train_embeddings = image_database.train_data
+    _, valid_ages, valid_embeddings = image_database.valid_data
 
     with tf.Graph().as_default() as graph:
         labels_placeholder = tf.placeholder(dtype=tf.int64, shape=[None], name="gender_label")
@@ -82,18 +84,18 @@ def age_classifier(embedding_size, weight_decay_l1, learning_rate, learning_rate
         session.run(tf.local_variables_initializer())
 
         epoch = 0
-        youth_indexes = np.where(train_ages <= 30)[0]
-        middle_indexes = np.where(np.logical_and(train_ages > 30, train_ages <= 59))[0]
-        old_indexes = np.where(train_ages > 59)[0]
+        # youth_indexes = np.where(train_ages <= 30)[0]
+        # middle_indexes = np.where(np.logical_and(train_ages > 30, train_ages <= 59))[0]
+        # old_indexes = np.where(train_ages > 59)[0]
         while epoch < epoch_size:
             gs = session.run(global_step, feed_dict=None)
 
-            selection_ages, selection_embeddings = ages_selection(train_embeddings,
-                                                                  youth_indexes,
-                                                                  middle_indexes,
-                                                                  old_indexes)
+            # selection_ages, selection_embeddings = ages_selection(train_embeddings,
+            #                                                       youth_indexes,
+            #                                                       middle_indexes,
+            #                                                       old_indexes)
 
-            train(session, selection_embeddings, selection_ages, embeddings_placeholder, labels_placeholder,
+            train(session, train_embeddings, train_ages, embeddings_placeholder, labels_placeholder,
                   phase_train_placeholder, global_step, total_losses, learning_rate, train_op, summary_op,
                   summary_writer, batch_size)
 
@@ -132,19 +134,19 @@ def age_evaluate(session, valid_embeddings, valid_ages, embeddings_placeholder, 
                  phase_train_placeholder, global_step, epoch, correct_sum, summary_writer):
     summary = tf.Summary()
 
-    youth_index = np.where(valid_ages <= 30)[0]
-    middle_index = np.where(np.logical_and(valid_ages > 30, valid_ages <= 59))[0]
-    old_index = np.where(valid_ages > 59)[0]
-
-    age_labels = np.empty((len(valid_ages)))
-
-    age_labels[youth_index] = 0
-    age_labels[middle_index] = 1
-    age_labels[old_index] = 2
+    # youth_index = np.where(valid_ages <= 30)[0]
+    # middle_index = np.where(np.logical_and(valid_ages > 30, valid_ages <= 59))[0]
+    # old_index = np.where(valid_ages > 59)[0]
+    #
+    # age_labels = np.empty((len(valid_ages)))
+    #
+    # age_labels[youth_index] = 0
+    # age_labels[middle_index] = 1
+    # age_labels[old_index] = 2
 
     correct_count = session.run(correct_sum, feed_dict={
         embeddings_placeholder: valid_embeddings,
-        labels_placeholder: age_labels,
+        labels_placeholder: valid_ages,
         phase_train_placeholder: False
     })
 

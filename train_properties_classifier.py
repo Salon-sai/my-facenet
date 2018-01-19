@@ -7,10 +7,17 @@ import datetime
 
 import age_model, gender_model
 from data_process.imdb_process import ImageDatabase, calculate_embedding
+from data_process.xiaoyu_process import ImageAgeDatabase
 
 def main(args):
     imdb_dir = os.path.expanduser(args.imdb_aligned_root)
-    image_database = ImageDatabase(imdb_dir, args.max_num_images)
+    if args.train_attr == "GENDER":
+        image_database = ImageDatabase(imdb_dir, args.max_num_images)
+    elif args.train_attr == "AGE":
+        image_database = ImageAgeDatabase(imdb_dir)
+    else:
+        raise ValueError('Invalid training properties')
+
     batch_size = args.batch_size
     now_datetime = datetime.datetime.now()
 
@@ -49,7 +56,7 @@ def main(args):
                        args.learning_rate_decay_factor, args.optimizer, args.epoch_size, args.batch_size,
                        age_log_dir, age_model_dir, age_subdir, image_database)
     else:
-        raise ValueError('Invalid optimization algorithm')
+        raise ValueError('Invalid training properties')
 
 def parse_arguments(argv):
     parser = argparse.ArgumentParser()
