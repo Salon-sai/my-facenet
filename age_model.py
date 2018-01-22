@@ -30,12 +30,9 @@ def age_model(embeddings, weight_decay1, phase_train=True):
 
 def age_classifier(embedding_size, weight_decay_l1, learning_rate, learning_rate_decay_step,
                    learning_rate_decay_factor, optimizer_name, epoch_size, batch_size,
-                   log_dir, model_dir, subdir, image_database):
-    # _, train_embeddings, train_ages, _ = image_database.train_data
-    # _, valid_embeddings, valid_ages, _ = image_database.valid_data
-    # _, test_embeddings, test_ages, _ = image_database.test_data
-    _, train_ages, train_embeddings = image_database.train_data
-    _, valid_ages, valid_embeddings = image_database.valid_data
+                   log_dir, model_dir, subdir, image_database, n_fold=10):
+    # _, train_ages, train_embeddings = image_database.train_data
+    # _, valid_ages, valid_embeddings = image_database.valid_data
 
     with tf.Graph().as_default() as graph:
         labels_placeholder = tf.placeholder(dtype=tf.int64, shape=[None], name="gender_label")
@@ -80,33 +77,50 @@ def age_classifier(embedding_size, weight_decay_l1, learning_rate, learning_rate
         summary_writer = tf.summary.FileWriter(log_dir, graph)
 
         session = tf.Session(graph=graph)
-        session.run(tf.global_variables_initializer())
-        session.run(tf.local_variables_initializer())
 
-        epoch = 0
-        # youth_indexes = np.where(train_ages <= 30)[0]
-        # middle_indexes = np.where(np.logical_and(train_ages > 30, train_ages <= 59))[0]
-        # old_indexes = np.where(train_ages > 59)[0]
-        while epoch < epoch_size:
-            gs = session.run(global_step, feed_dict=None)
+        accuracies = np.arange(n_fold)
 
-            # selection_ages, selection_embeddings = ages_selection(train_embeddings,
-            #                                                       youth_indexes,
-            #                                                       middle_indexes,
-            #                                                       old_indexes)
+        for i in range(n_fold):
+            train_index, valid_index = image_database.split_index()
+            train_embeddings = image_database.embeddings[train_index]
+            train_ages = image_database.labels[train_index]
 
-            train(session, train_embeddings, train_ages, embeddings_placeholder, labels_placeholder,
-                  phase_train_placeholder, global_step, total_losses, learning_rate, train_op, summary_op,
-                  summary_writer, batch_size)
+            valid_embeddings = image_database.embeddings[valid_index]
+            valid_ages = image_database.labels[valid_index]
 
-            print("saving the model parameters...")
-            save_variables_and_metagraph(session, saver, model_dir, subdir, gs)
+            session.run(tf.global_variables_initializer())
+            session.run(tf.local_variables_initializer())
 
-            print("evaluating...")
-            age_evaluate(session, valid_embeddings, valid_ages, embeddings_placeholder, labels_placeholder,
-                         phase_train_placeholder, gs, epoch, correct_sum, summary_writer)
+            epoch = 0
+            last_accuracy = 0
+            # youth_indexes = np.where(train_ages <= 30)[0]
+            # middle_indexes = np.where(np.logical_and(train_ages > 30, train_ages <= 59))[0]
+            # old_indexes = np.where(train_ages > 59)[0]
+            while epoch < epoch_size:
+                gs = session.run(global_step, feed_dict=None)
 
-            epoch += 1
+                # selection_ages, selection_embeddings = ages_selection(train_embeddings,
+                #                                                       youth_indexes,
+                #                                                       middle_indexes,
+                #                                                       old_indexes)
+
+                train(session, train_embeddings, train_ages, embeddings_placeholder, labels_placeholder,
+                      phase_train_placeholder, global_step, total_losses, learning_rate, train_op, summary_op,
+                      summary_writer, batch_size)
+
+                print("saving the model parameters...")
+                save_variables_and_metagraph(session, saver, model_dir, subdir, gs)
+
+                print("evaluating...")
+                last_accuracy = age_evaluate(session, valid_embeddings, valid_ages, embeddings_placeholder, labels_placeholder,
+                             phase_train_placeholder, gs, epoch, correct_sum, summary_writer)
+
+                epoch += 1
+
+            accuracies[i] = last_accuracy
+
+        print("After %d-Fold Cross Validation")
+        print("Mean Accuracy: %1.4f+-%1.4f" % (accuracies.mean(), accuracies.std()))
 
         session.close()
 
@@ -155,3 +169,4 @@ def age_evaluate(session, valid_embeddings, valid_ages, embeddings_placeholder, 
     summary.value.add(tag="evaluate/accuracy", simple_value=accuracy)
     summary_writer.add_summary(summary, global_step)
     print("\t\t Epoch: %3d, Valid Accuracy: %1.4f" % (epoch, accuracy))
+    return accuracy
