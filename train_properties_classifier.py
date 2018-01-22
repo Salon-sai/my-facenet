@@ -52,9 +52,10 @@ def main(args):
         if not os.path.isdir(age_model_dir):
             os.makedirs(age_model_dir)
 
-        age_model.age_classifier(embedding_size,  args.weight_decay_l1, args.learning_rate, args.learning_rate_decay_step,
-                       args.learning_rate_decay_factor, args.optimizer, args.epoch_size, args.batch_size,
-                       age_log_dir, age_model_dir, age_subdir, image_database)
+        age_model.age_classifier(embedding_size,  args.weight_decay_l1, args.learning_rate,
+                                 args.learning_rate_decay_step, args.learning_rate_decay_factor, args.optimizer,
+                                 args.epoch_size, args.batch_size, args.gpu_memory_fraction, age_log_dir, age_model_dir,
+                                 age_subdir, image_database)
     else:
         raise ValueError('Invalid training properties')
 
@@ -80,6 +81,8 @@ def parse_arguments(argv):
     parser.add_argument("--models_base_dir", type=str, help="Direcotry where to save the parameters of model",
                         default="models/")
     parser.add_argument("--weight_decay_l1", type=float, help="L1 weight regularization", default=0.0)
+    parser.add_argument('--gpu_memory_fraction', type=float,
+        help='Upper bound on the amount of GPU memory that will be used by the process.', default=0.4)
     parser.add_argument("--train_attr", type=str, choices=["GENDER", "AGE"],
                         help="which property will be trained", default="GENDER")
     return parser.parse_args(argv)

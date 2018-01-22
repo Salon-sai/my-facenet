@@ -29,7 +29,7 @@ def age_model(embeddings, weight_decay1, phase_train=True):
     return net
 
 def age_classifier(embedding_size, weight_decay_l1, learning_rate, learning_rate_decay_step,
-                   learning_rate_decay_factor, optimizer_name, epoch_size, batch_size,
+                   learning_rate_decay_factor, optimizer_name, epoch_size, batch_size, gpu_memory_fraction,
                    log_dir, model_dir, subdir, image_database, n_fold=10):
     # _, train_ages, train_embeddings = image_database.train_data
     # _, valid_ages, valid_embeddings = image_database.valid_data
@@ -76,9 +76,10 @@ def age_classifier(embedding_size, weight_decay_l1, learning_rate, learning_rate
 
         summary_writer = tf.summary.FileWriter(log_dir, graph)
 
-        session = tf.Session(graph=graph)
+        gpu_options = tf.GPUOptions(per_process_gpu_memory_fraction=gpu_memory_fraction)
+        session = tf.Session(graph=graph, config=tf.ConfigProto(gpu_options=gpu_options))
 
-        accuracies = np.arange(n_fold)
+        accuracies = np.empty(n_fold)
 
         for i in range(n_fold):
             train_index, valid_index = image_database.split_index()
