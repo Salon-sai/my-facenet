@@ -30,11 +30,8 @@ def age_model(embeddings, weight_decay1, phase_train=True):
 
 def age_classifier(embedding_size, weight_decay_l1, learning_rate, learning_rate_decay_step,
                    learning_rate_decay_factor, optimizer_name, epoch_size, batch_size, gpu_memory_fraction,
-                   log_dir, model_dir, subdir, image_database, n_fold, use_device):
-    # _, train_ages, train_embeddings = image_database.train_data
-    # _, valid_ages, valid_embeddings = image_database.valid_data
-
-    with tf.Graph().as_default(), tf.device(use_device):
+                   log_dir, model_dir, subdir, image_database, n_fold=10):
+    with tf.Graph().as_default() as graph:
         labels_placeholder = tf.placeholder(dtype=tf.int64, shape=[None], name="gender_label")
 
         embeddings_placeholder = tf.placeholder(dtype=tf.float32, shape=[None, embedding_size],
@@ -74,10 +71,10 @@ def age_classifier(embedding_size, weight_decay_l1, learning_rate, learning_rate
 
         summary_op = tf.summary.merge_all()
 
-        gpu_options = tf.GPUOptions(per_process_gpu_memory_fraction=gpu_memory_fraction)
-        session = tf.Session(config=tf.ConfigProto(gpu_options=gpu_options))
+        summary_writer = tf.summary.FileWriter(log_dir, graph)
 
-        summary_writer = tf.summary.FileWriter(log_dir, session.graph)
+        gpu_options = tf.GPUOptions(per_process_gpu_memory_fraction=gpu_memory_fraction)
+        session = tf.Session(graph=graph, config=tf.ConfigProto(gpu_options=gpu_options, allow_soft_placement=True))
 
         accuracies = np.empty(n_fold)
 

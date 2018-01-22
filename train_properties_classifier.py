@@ -58,7 +58,7 @@ def main(args):
         age_model.age_classifier(embedding_size,  args.weight_decay_l1, args.learning_rate,
                                  args.learning_rate_decay_step, args.learning_rate_decay_factor, args.optimizer,
                                  args.epoch_size, args.batch_size, args.gpu_memory_fraction, age_log_dir, age_model_dir,
-                                 age_subdir, image_database, args.num_folds, args.use_device)
+                                 age_subdir, image_database, args.num_folds)
     else:
         raise ValueError('Invalid training properties')
 
@@ -88,7 +88,6 @@ def parse_arguments(argv):
         help='Upper bound on the amount of GPU memory that will be used by the process.', default=0.4)
     parser.add_argument("--train_attr", type=str, choices=["GENDER", "AGE"],
                         help="which property will be trained", default="GENDER")
-    parser.add_argument("--use_device", type=str, help="The gpu devices of using as training", default="/gpu:0")
     parser.add_argument("--num_folds", type=int,
                         help='Number of folds to use for cross validation. Mainly used for testing.', default=10)
     return parser.parse_args(argv)
