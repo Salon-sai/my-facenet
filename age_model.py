@@ -43,7 +43,11 @@ def age_classifier(embedding_size, weight_decay_l1, learning_rate, learning_rate
 
         logits = age_model(embeddings_placeholder, weight_decay_l1, phase_train_placeholder)
 
-        correct = tf.equal(tf.argmax(logits, 1), labels_placeholder)
+        logits = tf.identity(logits, "logits")
+
+        predict = tf.argmax(logits, 1, name="predict")
+
+        correct = tf.equal(predict, labels_placeholder, name="correct")
 
         correct_sum = tf.reduce_sum(tf.cast(correct, "float"))
 
