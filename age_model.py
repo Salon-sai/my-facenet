@@ -95,16 +95,9 @@ def age_classifier(embedding_size, weight_decay_l1, learning_rate, learning_rate
 
             epoch = 0
             last_accuracy = 0
-            # youth_indexes = np.where(train_ages <= 30)[0]
-            # middle_indexes = np.where(np.logical_and(train_ages > 30, train_ages <= 59))[0]
-            # old_indexes = np.where(train_ages > 59)[0]
             while epoch < epoch_size:
                 gs = session.run(global_step, feed_dict=None)
 
-                # selection_ages, selection_embeddings = ages_selection(train_embeddings,
-                #                                                       youth_indexes,
-                #                                                       middle_indexes,
-                #                                                       old_indexes)
 
                 train(session, train_embeddings, train_ages, embeddings_placeholder, labels_placeholder,
                       phase_train_placeholder, global_step, total_losses, learning_rate, train_op, summary_op,
