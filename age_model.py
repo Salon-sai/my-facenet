@@ -32,12 +32,12 @@ def age_classifier(embedding_size, weight_decay_l1, learning_rate, learning_rate
                    learning_rate_decay_factor, optimizer_name, epoch_size, batch_size, gpu_memory_fraction,
                    log_dir, model_dir, subdir, image_database, n_fold=10):
     with tf.Graph().as_default() as graph:
-        labels_placeholder = tf.placeholder(dtype=tf.int64, shape=[None], name="gender_label")
+        labels_placeholder = tf.placeholder(dtype=tf.int64, shape=[None], name="age_label")
 
         embeddings_placeholder = tf.placeholder(dtype=tf.float32, shape=[None, embedding_size],
                                                 name="embeddings_placeholder")
 
-        phase_train_placeholder = tf.placeholder(dtype=tf.bool, name="phase_gender_train")
+        phase_train_placeholder = tf.placeholder(dtype=tf.bool, name="phase_age_train")
 
         global_step = tf.Variable(0, trainable=False)
 
