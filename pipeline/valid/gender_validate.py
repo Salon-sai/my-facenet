@@ -158,6 +158,5 @@ def parse_arguments(argv):
     parser.add_argument("--image_size", type=int, help="The size of face image", default=160)
     return parser.parse_args(argv)
 
-
 if __name__ == '__main__':
     main(parse_arguments(sys.argv[1:]))
