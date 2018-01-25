@@ -39,6 +39,7 @@ def main(args):
         embeddings = tf.get_default_graph().get_tensor_by_name("embeddings:0")
         prelogits = tf.get_default_graph().get_tensor_by_name("InceptionResnetV1/Bottleneck/BatchNorm/batchnorm/add_1:0")
 
+        family_dict = dict()
         for family_id in os.listdir(preprocess_root_dir):
             preprocess_family_dir = os.path.join(preprocess_root_dir, family_id)
             process_family_dir = os.path.join(process_root_dir, family_id)
@@ -80,8 +81,9 @@ def main(args):
 
             save_process(represent_embeddings, represent_ids, family_image_paths,save_family_dir)
 
-            process_cluster(clusters_ids, process_family_dir, emb_array, save_family_dir,
+            person_emb_dict = process_cluster(clusters_ids, process_family_dir, emb_array, save_family_dir,
                             family_image_paths, root_dir, family_id)
+            family_dict[family_id] = person_emb_dict
             print("----------------------------------------\n")
 
 def process_cluster(face_array, process_family_dir, emb_array, save_family_dir,
@@ -101,6 +103,7 @@ def process_cluster(face_array, process_family_dir, emb_array, save_family_dir,
     largest_area = 0
     domain_image_path = ""
     domain_represent_vector = np.zeros(128)
+    person_emb_dict = dict()
 
     # copy file to the process dir
     for label, face_ids in enumerate(face_array):
@@ -120,7 +123,7 @@ def process_cluster(face_array, process_family_dir, emb_array, save_family_dir,
         #     domain_image_path = family_image_paths[domain_id]
         #     domain_represent_vector = represent_embedding
         #     domain_label = label
-
+        person_emb_dict[label] = emb_array[face_ids]
         for j, face_index in enumerate(face_ids):
             image_name = family_image_paths[face_index].split("/")[-1]
             copyfile(family_image_paths[face_index], os.path.join(label_dir, image_name))
@@ -128,6 +131,7 @@ def process_cluster(face_array, process_family_dir, emb_array, save_family_dir,
     # save_domain_info(root_dir, domain_image_path, family_id, domain_represent_vector, domain_label)
     # print("save the domain information, current family id : %s, domain_label : %s" %
     #       (str(family_id), str(domain_label)))
+    return person_emb_dict
 
 def save_domain_info(root_dir, image_path, family_id, represent_vector, label):
     domain_root_dir = os.path.join(root_dir, "domain")
@@ -249,7 +253,7 @@ def near_center(embeddings, face_ids, center=None):
     main_id = np.argmin(dist)
     return cluster_embeddings[main_id], face_ids[main_id]
 
-def load_model(model):
+def load_model(model, session=None):
     model_path = os.path.expanduser(model)
     if os.path.isfile(model_path):
         print("Model file is %s " % model_path)
@@ -265,7 +269,10 @@ def load_model(model):
         print('Checkpoint file: %s' % ckpt_file)
 
         saver = tf.train.import_meta_graph(os.path.join(model_path, meta_file))
-        saver.restore(tf.get_default_session(), os.path.join(model_path, ckpt_file))
+        if session:
+            saver.restore(session, os.path.join(model_path, ckpt_file))
+        else:
+            saver.restore(tf.get_default_session(), os.path.join(model_path, ckpt_file))
 
 def get_model_filenames(model_dir):
     files = os.listdir(model_dir)
