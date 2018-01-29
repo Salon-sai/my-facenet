@@ -89,31 +89,59 @@ def main(args):
             family_dict[family_id] = person_emb_dict
             print("----------------------------------------\n")
 
-    with tf.Session() as session:
-        load_model(gender_model_dir)
+    with tf.Session(graph=tf.Graph()) as session:
+        load_model(gender_model_dir, session)
 
         embeddings = tf.get_default_graph().get_tensor_by_name("embeddings_placeholder:0")
         phase_train_placeholder = tf.get_default_graph().get_tensor_by_name("phase_gender_train:0")
         predict = tf.get_default_graph().get_tensor_by_name("predict:0")
 
-        for person_id, person_emb_array in family_dict.items():
-            predict_genders = session.run(predict,
-                                          feed_dict={embeddings: person_emb_array, phase_train_placeholder: False})
-            predict_gender = mode(predict_genders, axis=None)[0][0]
-            family_dict[person_id + "_" + str(predict_gender)] = family_dict.pop(person_id)
+        for family_id, person_emb_dict in family_dict.items():
+            new_person_emb_dict = dict()
+            for person_id, person_emb_array in person_emb_dict.items():
+                predict_genders = session.run(predict,
+                                              feed_dict={embeddings: person_emb_array, phase_train_placeholder: False})
+                predict_gender = mode(predict_genders, axis=None)[0][0]
+                new_person_emb_dict[str(person_id) + "_" + str(predict_gender)] = person_emb_array
+            family_dict[family_id] = new_person_emb_dict
 
-    with tf.Session() as session:
-        load_model(age_model_dir)
+    print("-------------------------\n")
+    with tf.Session(graph=tf.Graph()) as session:
+        load_model(age_model_dir, session)
 
         embeddings = tf.get_default_graph().get_tensor_by_name("embeddings_placeholder:0")
-        phase_train_placeholder = tf.get_default_graph().get_tensor_by_name("phase_gender_train:0")
+        phase_train_placeholder = tf.get_default_graph().get_tensor_by_name("phase_age_train:0")
         predict = tf.get_default_graph().get_tensor_by_name("predict:0")
 
-        for person_id, person_emb_array in family_dict.items():
-            predict_ages = session.run(predict, feed_dict={embeddings: person_emb_array, phase_train_placeholder: False})
-            predict_age = mode(predict_ages, axis=None)[0][0]
-            family_dict[person_id + "_" + str(predict_age)] = family_dict.pop(person_id)
+        for family_id, person_emb_dict in family_dict.items():
+            new_person_emb_dict = dict()
+            for person_id, person_emb_array in person_emb_dict.items():
+                predict_ages = session.run(predict,
+                                           feed_dict={embeddings: person_emb_array, phase_train_placeholder: False})
+                predict_age = mode(predict_ages, axis=None)[0][0]
+                new_person_emb_dict[str(person_id) + "_" + str(predict_age)] = person_emb_array
+            family_dict[family_id] = new_person_emb_dict
 
+    save_txt = os.path.join(save_dir, "result.txt")
+    with open(save_txt, "w") as f:
+        for family_id, person_emb_dict in family_dict.items():
+            for person_id_gender_age in person_emb_dict.keys():
+                person_id, gender, age = person_id_gender_age.split("_")
+                # if gender == '0':
+                #     gender = 'F'
+                # else:
+                #     gender = 'M'
+                #
+                # if age == '0':
+                #     age = 'child'
+                # elif age == '1':
+                #     age = 'adult'
+                # elif age == '2':
+                #     age = 'old'
+
+                embedding_path = os.path.join(save_dir, str(family_id), person_id, "embedding.npy")
+
+                f.write("%s,%s,%s,%s,%s\n" % (str(family_id), person_id, embedding_path, gender, age))
 
 
 def process_cluster(face_array, process_family_dir, emb_array, save_family_dir,
