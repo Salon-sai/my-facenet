@@ -8,6 +8,7 @@ from shutil import copyfile
 
 import tensorflow as tf
 from tensorflow.python.platform import gfile
+from scipy.stats import mode
 
 import numpy as np
 
@@ -17,7 +18,9 @@ from sklearn.metrics import calinski_harabaz_score
 
 def main(args):
     root_dir = os.path.expanduser(args.data_dir)
-    model_dir = os.path.expanduser(args.model_dir)
+    identification_model_dir = os.path.expanduser(args.identification_model_dir)
+    gender_model_dir = os.path.expanduser(args.gender_model_dir)
+    age_model_dir = os.path.expanduser(args.age_model_dir)
     preprocess_root_dir = os.path.join(root_dir, "preprocess")
     process_root_dir = os.path.join(root_dir, args.process_subdir)
     save_dir = os.path.join(root_dir, args.save_subdir)
@@ -32,7 +35,7 @@ def main(args):
         session.run(tf.local_variables_initializer())
         session.run(tf.global_variables_initializer())
 
-        load_model(model_dir)
+        load_model(identification_model_dir)
 
         images_placeholder = tf.get_default_graph().get_tensor_by_name("input:0")
         phase_train_placeholder = tf.get_default_graph().get_tensor_by_name("phase_train:0")
@@ -85,6 +88,33 @@ def main(args):
                             family_image_paths, root_dir, family_id)
             family_dict[family_id] = person_emb_dict
             print("----------------------------------------\n")
+
+    with tf.Session() as session:
+        load_model(gender_model_dir)
+
+        embeddings = tf.get_default_graph().get_tensor_by_name("embeddings_placeholder:0")
+        phase_train_placeholder = tf.get_default_graph().get_tensor_by_name("phase_gender_train:0")
+        predict = tf.get_default_graph().get_tensor_by_name("predict:0")
+
+        for person_id, person_emb_array in family_dict.items():
+            predict_genders = session.run(predict,
+                                          feed_dict={embeddings: person_emb_array, phase_train_placeholder: False})
+            predict_gender = mode(predict_genders, axis=None)[0][0]
+            family_dict[person_id + "_" + str(predict_gender)] = family_dict.pop(person_id)
+
+    with tf.Session() as session:
+        load_model(age_model_dir)
+
+        embeddings = tf.get_default_graph().get_tensor_by_name("embeddings_placeholder:0")
+        phase_train_placeholder = tf.get_default_graph().get_tensor_by_name("phase_gender_train:0")
+        predict = tf.get_default_graph().get_tensor_by_name("predict:0")
+
+        for person_id, person_emb_array in family_dict.items():
+            predict_ages = session.run(predict, feed_dict={embeddings: person_emb_array, phase_train_placeholder: False})
+            predict_age = mode(predict_ages, axis=None)[0][0]
+            family_dict[person_id + "_" + str(predict_age)] = family_dict.pop(person_id)
+
+
 
 def process_cluster(face_array, process_family_dir, emb_array, save_family_dir,
                     family_image_paths, root_dir, family_id):
@@ -311,8 +341,9 @@ def prewhiten(x):
 
 def parse_arguments(argv):
     parser = argparse.ArgumentParser()
-
-    parser.add_argument("model_dir", type=str, help="the directory of facenet cnn model")
+    parser.add_argument("identification_model_dir", type=str, help="The directory of facenet cnn model")
+    parser.add_argument("gender_model_dir", type=str, help="The directory of gender model")
+    parser.add_argument("age_model_dir", type=str, help="The directory of age model")
     parser.add_argument("data_dir", type=str, help="the directory of data set")
     parser.add_argument("--process_subdir", type=str, help="The sub-directory of process", default="process")
     parser.add_argument("--save_subdir", type=str, help="The sub-directory of save", default="save")
