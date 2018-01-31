@@ -12,13 +12,25 @@ import align.detect_face as detect_face
 
 
 def main(args):
-    nrof_images_total = 0
-    nrof_successfully_aligned = 0
     margin = args.margin
 
     root_dir = os.path.expanduser(args.data_dir)
     src_dir = os.path.join(root_dir, "src")
     preprocess_dir = os.path.join(root_dir, "preprocess")
+    call_preprocess(args.data_dir, "src", "preprocess")
+
+def call_preprocess(data_dir, src_sub_dir, preprocess_sub_dir, face_size=160, margin=44, minsize=50,
+                    threshold=None, factor=0.709, file_ext="png"):
+    root_dir = os.path.expanduser(data_dir)
+    src_dir = os.path.join(root_dir, src_sub_dir)
+    preprocess_dir = os.path.join(root_dir, preprocess_sub_dir)
+
+    if not os.path.exists(preprocess_dir):
+        os.mkdir(preprocess_dir)
+
+    nrof_images_total = 0
+    nrof_successfully_aligned = 0
+    threshold = threshold or [0.8, 0.9, 0.9]
 
     with tf.Graph().as_default():
         with tf.Session() as session:
@@ -34,8 +46,8 @@ def main(args):
 
                     image_path = os.path.join(family_dir, image_name)
                     image = misc.imread(image_path, mode='RGB')
-                    bounding_boxes, _ = detect_face.detect_face(image, args.minsize, pnet, rnet, onet,
-                                                                args.threshold, args.factor)
+                    bounding_boxes, _ = detect_face.detect_face(image, minsize, pnet, rnet, onet,
+                                                                threshold, factor)
                     nrof_faces = bounding_boxes.shape[0]
                     if nrof_faces > 0:
                         # det = bounding_boxes[:, 0: 4]
@@ -54,15 +66,15 @@ def main(args):
                             bb[3] = np.minimum(bounding_box[3] + margin / 2, img_size[0])   # y2
 
                             cropped = image[bb[1]:bb[3],bb[0]:bb[2], :]
-                            aligned = misc.imresize(cropped, (args.face_size, args.face_size), interp="bilinear")
+                            aligned = misc.imresize(cropped, (face_size, face_size), interp="bilinear")
                             nrof_successfully_aligned += 1
-                            output_filename = "{}_{}_{}_{}".format(image_base_name, square, index, "." + args.file_ext)
+                            output_filename = "{}_{}_{}_{}".format(image_base_name, square, index, "." + file_ext)
                             misc.imsave(os.path.join(pp_image_dir, output_filename), aligned)
                     else:
                         print("can not extract the face from the image : %s" % image_path)
             print("Total number of images: %d" % nrof_images_total)
             print("Number of successfully aligned images: %d" % nrof_images_total)
-
+    return preprocess_dir
 
 
 def parse_arguments(argv):

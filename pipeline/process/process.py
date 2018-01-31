@@ -17,13 +17,32 @@ from sklearn.cluster import KMeans
 from sklearn.metrics import calinski_harabaz_score
 
 def main(args):
-    root_dir = os.path.expanduser(args.data_dir)
-    identification_model_dir = os.path.expanduser(args.identification_model_dir)
-    gender_model_dir = os.path.expanduser(args.gender_model_dir)
-    age_model_dir = os.path.expanduser(args.age_model_dir)
-    preprocess_root_dir = os.path.join(root_dir, "preprocess")
-    process_root_dir = os.path.join(root_dir, args.process_subdir)
-    save_dir = os.path.join(root_dir, args.save_subdir)
+    # root_dir = os.path.expanduser(args.data_dir)
+    # identification_model_dir = os.path.expanduser(args.identification_model_dir)
+    # gender_model_dir = os.path.expanduser(args.gender_model_dir)
+    # age_model_dir = os.path.expanduser(args.age_model_dir)
+    # preprocess_root_dir = os.path.join(root_dir, "preprocess")
+    # process_root_dir = os.path.join(root_dir, args.process_subdir)
+    # save_dir = os.path.join(root_dir, args.save_subdir)
+    #
+    # if not os.path.isdir(process_root_dir):
+    #     os.mkdir(process_root_dir)
+    #
+    # if not os.path.isdir(save_dir):
+    #     os.mkdir(save_dir)
+
+    call_process(args.data_dir, "preprocess", args.process_subdir, args.save_subdir, args.identification_model_dir,
+                 args.gender_model_dir, args.age_model_dir, args.batch_size, args.image_size, args.threshold)
+
+def call_process(data_dir, preprocess_sub_dir, process_subdir, save_subdir, identification_model_dir, gender_model_dir,
+                 age_model_dir, batch_size=90, image_size=160, threshold=0.2):
+    root_dir = os.path.expanduser(data_dir)
+    identification_model_dir = os.path.expanduser(identification_model_dir)
+    gender_model_dir = os.path.expanduser(gender_model_dir)
+    age_model_dir = os.path.expanduser(age_model_dir)
+    preprocess_root_dir = os.path.join(root_dir, preprocess_sub_dir)
+    process_root_dir = os.path.join(root_dir, process_subdir)
+    save_dir = os.path.join(root_dir, save_subdir)
 
     if not os.path.isdir(process_root_dir):
         os.mkdir(process_root_dir)
@@ -63,11 +82,11 @@ def main(args):
             # idx_array = np.arange(nrof_images)  # 记录每张脸的index
             emb_array = np.zeros((nrof_images, 128))  # embedding of each faces
             prelogits_array = np.zeros((nrof_images, 128))
-            nrof_batch = int(np.ceil(nrof_images / args.batch_size))
+            nrof_batch = int(np.ceil(nrof_images / batch_size))
             for label in range(nrof_batch):
-                start_index = label * args.batch_size
-                end_index = min((label + 1) * args.batch_size, nrof_images)
-                images = load_data(family_image_paths[start_index: end_index], args.image_size)
+                start_index = label * batch_size
+                end_index = min((label + 1) * batch_size, nrof_images)
+                images = load_data(family_image_paths[start_index: end_index], image_size)
                 emb_array[start_index: end_index, :], prelogits_array[start_index: end_index] = \
                     session.run([embeddings, prelogits],
                                 feed_dict={images_placeholder: images, phase_train_placeholder: False})
@@ -76,7 +95,7 @@ def main(args):
 
             print("clustering process...")
             # clusters_ids, represent_embeddings, represent_ids = kmean_cluster(emb_array, args.max_num_cluster)
-            clusters_ids, represent_embeddings, represent_ids = greed_cluster(emb_array, args.threshold)
+            clusters_ids, represent_embeddings, represent_ids = greed_cluster(emb_array, threshold)
             print("clustering the face and there are %d categories" % len(clusters_ids))
 
             print("dominate process...")
