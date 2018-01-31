@@ -64,6 +64,10 @@ def call_process(data_dir, preprocess_sub_dir, process_subdir, save_subdir, iden
         family_dict = dict()
         for family_id in os.listdir(preprocess_root_dir):
             preprocess_family_dir = os.path.join(preprocess_root_dir, family_id)
+
+            if len(os.listdir(preprocess_family_dir)) == 0:
+                print("The family : %s has no face" % family_id)
+                continue
             process_family_dir = os.path.join(process_root_dir, family_id)
             save_family_dir = os.path.join(save_dir, family_id)
             if not os.path.exists(save_family_dir):
